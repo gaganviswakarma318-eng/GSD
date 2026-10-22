@@ -1,6 +1,8 @@
 import type { CSSProperties, ReactNode } from 'react';
-type IconName = 'arrow' | 'download' | 'link' | 'paste' | 'audio' | 'video' | 'folder' | 'check' | 'close' | 'retry' | 'external' | 'clock' | 'spark' | 'help';
+type IconName = 'arrow' | 'download' | 'link' | 'paste' | 'audio' | 'video' | 'folder' | 'check' | 'close' | 'retry' | 'external' | 'clock' | 'spark' | 'help' | 'sun' | 'moon';
 const paths: Record<IconName, ReactNode> = {
+  sun: <><circle cx="12" cy="12" r="4" /><path d="M12 2v2m0 16v2M2 12h2m16 0h2M4.9 4.9l1.4 1.4m11.4 11.4 1.4 1.4M4.9 19.1l1.4-1.4M17.7 6.3l1.4-1.4" /></>,
+  moon: <path d="M20.6 13.1A8.7 8.7 0 0 1 10.9 3.4a8.8 8.8 0 1 0 9.7 9.7Z" />,
   arrow: <path d="M5 12h14M13 6l6 6-6 6" />,
   download: <path d="M12 3v12m-5-5 5 5 5-5M5 16v4h14v-4" />,
   link: <path d="m10 13 4-4m-6 6-1 1a4 4 0 0 1-6-6l4-4a4 4 0 0 1 6 0m2 3 1-1a4 4 0 0 1 6 6l-4 4a4 4 0 0 1-6 0" transform="translate(1 0)" />,
