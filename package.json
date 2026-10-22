@@ -1,0 +1,43 @@
+{
+  "name": "gsd",
+  "version": "2.0.0",
+  "private": true,
+  "description": "GSD — music and video, saved simply.",
+  "main": "electron/main.js",
+  "type": "commonjs",
+  "author": "GaganStudio",
+  "license": "ISC",
+  "engines": {
+    "node": ">=24.0.0"
+  },
+  "scripts": {
+    "dev": "node scripts/dev.cjs",
+    "dev:server": "node backend/server.js",
+    "dev:ui": "vite --config vite.config.mts",
+    "web": "node backend/server.js",
+    "start": "electron .",
+    "desktop": "npm run build && electron .",
+    "typecheck": "tsc --noEmit",
+    "test": "node --test backend/tests/*.test.js frontend/tests/*.test.cjs",
+    "test:media": "node tests/media.integration.cjs",
+    "smoke:desktop": "node scripts/smoke-desktop.cjs",
+    "build": "npm run typecheck && vite build --config vite.config.mts",
+    "prepare:tools": "node scripts/prepare-tools.cjs",
+    "build:win": "npm run prepare:tools && npm run build && electron-builder --win nsis --x64 --publish never",
+    "build:unpacked": "npm run prepare:tools && npm run build && electron-builder --win --x64 --dir --publish never"
+  },
+  "dependencies": {
+    "express": "5.3.0",
+    "react": "19.3.1",
+    "react-dom": "19.3.1"
+  },
+  "devDependencies": {
+    "@types/react": "19.3.0",
+    "@types/react-dom": "19.3.0",
+    "@vitejs/plugin-react": "6.1.2",
+    "electron": "45.0.0",
+    "electron-builder": "26.15.3",
+    "typescript": "7.0.2",
+    "vite": "8.3.5"
+  }
+}

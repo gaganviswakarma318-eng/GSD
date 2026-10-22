@@ -1,0 +1,30 @@
+{
+  "platform": "win32-x64",
+  "ytDlp": {
+    "version": "2026.10.21",
+    "url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.21/yt-dlp.exe",
+    "sha256": "33121d192d706e62f684a06f80918e3f3a8ba52ac3a65213b6951c39c7d9f555",
+    "manifest": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.21/SHA2-256SUMS",
+    "manifestName": "yt-dlp.exe",
+    "license": "https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.10.21/LICENSE",
+    "source": "https://github.com/yt-dlp/yt-dlp/tree/2026.10.21"
+  },
+  "ffmpeg": {
+    "version": "9.0.2",
+    "url": "https://github.com/GyanD/codexffmpeg/releases/download/9.0.2/ffmpeg-9.0.2-essentials_build.zip",
+    "sha256": "60f467265b1e312373dbcd92200c2618a74850f98d3d078e94296bb3fa2047ba",
+    "manifest": "https://api.github.com/repos/GyanD/codexffmpeg/releases/tags/9.0.2",
+    "manifestType": "github-release",
+    "manifestName": "ffmpeg-9.0.2-essentials_build.zip",
+    "source": "https://www.gyan.dev/ffmpeg/builds/"
+  },
+  "node": {
+    "version": "24.22.1",
+    "url": "https://nodejs.org/dist/v24.22.1/win-x64/node.exe",
+    "sha256": "d702daa815eabbff763c7d3808e235cf031cf2ca70211b56847bc72f51e240e5",
+    "manifest": "https://nodejs.org/dist/v24.22.1/SHASUMS256.txt",
+    "manifestName": "win-x64/node.exe",
+    "license": "https://raw.githubusercontent.com/nodejs/node/v24.22.1/LICENSE",
+    "source": "https://nodejs.org/dist/v24.22.1/"
+  }
+}
