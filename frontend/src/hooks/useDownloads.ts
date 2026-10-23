@@ -3,6 +3,16 @@ import { api } from '../api/client';
 import type { DownloadJob } from '../types';
 import { errorMessage } from '../utils';
 
+function newerJob(existing: DownloadJob | undefined, incoming: DownloadJob): DownloadJob {
+  if (existing && (existing.attempt > incoming.attempt || (existing.attempt === incoming.attempt && existing.updatedAt > incoming.updatedAt))) return existing;
+  return incoming;
+}
+
+function mergeSnapshot(previous: DownloadJob[], snapshot: DownloadJob[]): DownloadJob[] {
+  const existing = new Map(previous.map(job => [job.id, job]));
+  return snapshot.map(job => newerJob(existing.get(job.id), job)).sort((a, b) => b.createdAt - a.createdAt);
+}
+
 export function useDownloads() {
   const [jobs, setJobs] = useState<DownloadJob[]>([]);
   const [loading, setLoading] = useState(true);
@@ -11,13 +21,12 @@ export function useDownloads() {
   const upsert = useCallback((job: DownloadJob) => {
     setJobs(previous => {
       const existing = previous.find(item => item.id === job.id);
-      if (existing && existing.attempt > job.attempt) return previous;
-      if (existing && existing.attempt === job.attempt && existing.updatedAt > job.updatedAt) return previous;
+      if (newerJob(existing, job) !== job) return previous;
       return [job, ...previous.filter(item => item.id !== job.id)].sort((a, b) => b.createdAt - a.createdAt);
     });
   }, []);
   const refresh = useCallback(async () => {
-    try { setJobs((await api.jobs()).sort((a, b) => b.createdAt - a.createdAt)); setError(''); }
+    try { const snapshot = await api.jobs(); setJobs(previous => mergeSnapshot(previous, snapshot)); setError(''); }
     catch (reason) { setError(errorMessage(reason)); }
     finally { setLoading(false); }
   }, []);
@@ -30,7 +39,7 @@ export function useDownloads() {
     source.onmessage = event => {
       try {
         const snapshot: (DownloadJob & { expired?: boolean }) | DownloadJob[] = JSON.parse(event.data);
-        if (Array.isArray(snapshot)) setJobs(snapshot.sort((a, b) => b.createdAt - a.createdAt));
+        if (Array.isArray(snapshot)) setJobs(previous => mergeSnapshot(previous, snapshot));
         else if (snapshot.expired) setJobs(previous => previous.filter(job => job.id !== snapshot.id));
         else if (snapshot.id) upsert(snapshot);
         setError('');

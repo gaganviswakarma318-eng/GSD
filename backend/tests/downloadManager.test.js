@@ -129,7 +129,12 @@ test('same-title concurrent jobs use unique temporary and native output files', 
   const second = await create({ saveToken: 'native' });
   await until(() => calls.length === 2);
   assert.notEqual(calls[0].tempDir, calls[1].tempDir);
-  await Promise.all([calls[0].finish('first'), calls[1].finish('second')]);
+  // Concurrent directory creation can finish in either order. Match each runner
+  // to its job instead of assuming filesystem callbacks preserve enqueue order.
+  const firstCall = calls.find(call => path.basename(call.tempDir).startsWith(`${first.id}-`));
+  const secondCall = calls.find(call => path.basename(call.tempDir).startsWith(`${second.id}-`));
+  assert.ok(firstCall && secondCall);
+  await Promise.all([firstCall.finish('first'), secondCall.finish('second')]);
   await until(() => manager.get(first.id).status === 'completed' && manager.get(second.id).status === 'completed');
   assert.notEqual(manager.get(first.id).savedPath, manager.get(second.id).savedPath);
   assert.equal(await fs.readFile(manager.get(first.id).savedPath, 'utf8'), 'first');
