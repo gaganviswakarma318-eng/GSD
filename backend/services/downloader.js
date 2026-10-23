@@ -10,7 +10,7 @@ function parseProgress(line) {
   if (!line.startsWith('GSD_PROGRESS:')) return null;
   try {
     const value = JSON.parse(line.slice('GSD_PROGRESS:'.length));
-    const total = numeric(value.total_bytes) || numeric(value.total_bytes_estimate);
+    const total = numeric(value.total_bytes) || numeric(value.total_bytes_estimate) || null;
     const downloaded = numeric(value.downloaded_bytes) || 0;
     return { downloadedBytes: downloaded, totalBytes: total, progress: total ? Math.min(99, downloaded / total * 100) : 0, speedBytes: numeric(value.speed), etaSeconds: numeric(value.eta), streamId: String(value.format_id || 'source'), streamFinished: value.status === 'finished' };
   } catch { return null; }
@@ -25,12 +25,19 @@ function buildArgs(config, option, infoPath, tempDir) {
   return args;
 }
 
-async function runDownload({ config, raw, option, tempDir, signal, onProgress }) {
+async function runDownload({ config, raw, option, tempDir, signal, onProgress, processRunner = runProcess }) {
   const infoPath = path.join(tempDir, 'source.info.json');
   await fs.writeFile(infoPath, JSON.stringify(raw), { mode: 0o600 });
   let filePath = null;
-  const streams = new Map();
-  const result = await runProcess(config.tools.ytDlp, buildArgs(config, option, infoPath, tempDir), {
+  // Account for every selected source before the first progress event. A video
+  // stream finishing does not mean its companion audio has been downloaded.
+  const formats = Array.isArray(raw.formats) ? raw.formats : [raw];
+  const streams = new Map(option.selector.split('+').map(id => {
+    const format = formats.find(value => String(value.format_id) === id);
+    const totalBytes = numeric(format?.filesize) || numeric(format?.filesize_approx) || (option.merged ? null : numeric(option.estimatedSize)) || null;
+    return [id, { downloadedBytes: 0, totalBytes }];
+  }));
+  const result = await processRunner(config.tools.ytDlp, buildArgs(config, option, infoPath, tempDir), {
     signal,
     cwd: tempDir,
     captureStdout: false,
@@ -38,11 +45,17 @@ async function runDownload({ config, raw, option, tempDir, signal, onProgress })
       const progress = parseProgress(line);
       if (progress) {
         const { streamId, streamFinished, ...current } = progress;
-        streams.set(streamId, current);
-        const downloadedBytes = [...streams.values()].reduce((sum, stream) => sum + stream.downloadedBytes, 0);
-        const knownTotal = option.estimatedSize || (option.merged ? null : current.totalBytes);
-        const etaSeconds = option.merged && knownTotal && current.speedBytes ? Math.max(0, (knownTotal - downloadedBytes) / current.speedBytes) : current.etaSeconds;
-        onProgress({ ...current, downloadedBytes, totalBytes: knownTotal, etaSeconds, progress: knownTotal ? Math.min(99, downloadedBytes / knownTotal * 100) : 0, status: 'downloading' });
+        const previous = streams.get(streamId);
+        streams.set(streamId, {
+          downloadedBytes: current.downloadedBytes,
+          totalBytes: (streamFinished ? current.downloadedBytes : current.totalBytes) || previous?.totalBytes || null,
+        });
+        const sources = [...streams.values()];
+        const downloadedBytes = sources.reduce((sum, stream) => sum + stream.downloadedBytes, 0);
+        const knownTotal = sources.every(stream => stream.totalBytes > 0) ? sources.reduce((sum, stream) => sum + stream.totalBytes, 0) : null;
+        const speedBytes = streamFinished ? null : current.speedBytes;
+        const etaSeconds = !knownTotal || streamFinished ? null : option.merged ? speedBytes ? Math.max(0, (knownTotal - downloadedBytes) / speedBytes) : null : current.etaSeconds;
+        onProgress({ downloadedBytes, totalBytes: knownTotal, speedBytes, etaSeconds, progress: knownTotal ? Math.min(99, downloadedBytes / knownTotal * 100) : 0, status: 'downloading' });
       }
       else if (line.startsWith('GSD_PROCESSING:') || /^\[(Merger|ExtractAudio|VideoRemuxer|Fixup)/.test(line)) onProgress({ status: 'processing', speedBytes: null, etaSeconds: null });
       else if (line.startsWith('GSD_FILE:')) { try { filePath = JSON.parse(line.slice(9)); } catch {} }
