@@ -11,8 +11,8 @@ files:
   - dist/frontend/**/*
   - backend/**/*.js
   - backend/utils/kill-tree.ps1
-  - '!backend/tests{,/**/*}'
-  - '!backend/binaries{,/**/*}'
+  - "!backend/tests{,/**/*}"
+  - "!backend/binaries{,/**/*}"
   - electron/**/*
   - build/icon.ico
   - package.json
@@ -20,7 +20,7 @@ extraResources:
   - from: backend/binaries
     to: binaries
     filter:
-      - '**/*'
+      - "**/*"
   - from: build/THIRD-PARTY-NOTICES.md
     to: THIRD-PARTY-NOTICES.md
 win:

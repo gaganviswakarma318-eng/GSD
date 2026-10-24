@@ -646,6 +646,33 @@ select:disabled {
   margin-top: 9px;
   min-height: 15px;
 }
+.thumbnail-options {
+  margin-top: 17px;
+}
+.thumbnail-choice {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: fit-content;
+  color: #53604d;
+  font-size: 11px;
+  line-height: 1.5;
+  cursor: pointer;
+}
+.thumbnail-choice input {
+  width: 15px;
+  height: 15px;
+  margin: 0;
+  accent-color: #648638;
+  flex-shrink: 0;
+}
+.thumbnail-choice:has(input:disabled) {
+  color: var(--muted);
+  cursor: not-allowed;
+}
+.sidecar-choice {
+  margin-top: 10px;
+}
 .save-location {
   display: flex;
   align-items: center;
@@ -1121,6 +1148,13 @@ select:disabled {
   font-size: 10px;
   line-height: 1.7;
   color: var(--error);
+  overflow-wrap: anywhere;
+}
+.job-warning {
+  margin-top: 10px;
+  font-size: 10px;
+  line-height: 1.7;
+  color: #876631;
   overflow-wrap: anywhere;
 }
 .job-actions {
@@ -1998,6 +2032,18 @@ html[data-theme="dark"] select:disabled {
 }
 html[data-theme="dark"] :is(.format-note, .location-help) {
   color: var(--text-subtle);
+}
+html[data-theme="dark"] .thumbnail-choice {
+  color: #bac6ab;
+}
+html[data-theme="dark"] .thumbnail-choice:has(input:disabled) {
+  color: var(--text-subtle);
+}
+html[data-theme="dark"] .thumbnail-choice input {
+  accent-color: #b9d682;
+}
+html[data-theme="dark"] .job-warning {
+  color: #d3be91;
 }
 html[data-theme="dark"] .location-icon {
   background: #343f2c;

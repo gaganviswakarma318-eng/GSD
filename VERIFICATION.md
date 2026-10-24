@@ -1,5 +1,18 @@
 # Verification — GSD 2.0.0
 
+## Automatic thumbnail update — 23–24 October 2026
+
+- `npm.cmd test`: 61 passed, 0 failed. New checks cover the actual artwork controls and API payload, structured merging/conversion progress even in yt-dlp quiet mode, container support, JPEG/PNG byte preservation, single WebP conversion, safe candidate validation, missing FFmpeg/FFprobe, corrupt/missing artwork, nonfatal fallback, processing cancellation, sidecar ownership/lifecycle, native thumbnail collisions, cancellation during final cleanup, and expiry during delivery settlement.
+- `npm.cmd run build`: passed (strict TypeScript and Vite production build).
+- `npm.cmd run test:media`: passed with bundled yt-dlp/FFmpeg/FFprobe and generated local fixtures. Native MP3, M4A and MP4 expose compatible attached cover images; MKV contains a named image attachment. Audio/video packet SHA-256 hashes, duration and existing title/artist/album/comment tags are preserved. The suite also validates best-quality 640×360 WebP selection, image aspect ratio, processing before completion, artwork opt-out without an image request, missing/corrupt artwork fallback, unchanged unsupported WebM, browser sidecar availability after media acknowledgment, desktop sidecar copies, and real thumbnail-process cancellation/cleanup.
+- The final 24 October rerun also passed converted-MP3 audio packet preservation, the actual conversion progress stage, and non-consuming HEAD requests for both media and thumbnail downloads. Evidence: `work/media-integration/result.json` (`ok: true`).
+- Additional direct real-tool checks passed for FLAC artwork. MOV's muxer silently discarded its cover in a real test, so MOV is explicitly sidecar-only.
+- Current desktop screenshot smoke could not initialize Electron: this host's AppContainer ACL check denied access to the isolated local runtime. The installed development Electron runtime was also unavailable. No filesystem permission or production security-setting changes were made. The failed attempt log is retained in `work/desktop-smoke-1792803023836/process.log`; it produced no screenshots.
+- A browser fallback was checked, but the computer-use session exposed no apps or browsers. Current desktop/narrow visual screenshots therefore remain unverified; the real component and queued-request tests passed.
+- The previous installer below predates the thumbnail feature and has not been rebuilt for this update. Device/player artwork display was not manually tested; compatibility details and the complete modified-file list are in [the thumbnail guide](docs/THUMBNAIL_EMBEDDING.md).
+
+The results below describe the prior base application verification.
+
 Validated on Windows x64 on 22 October 2026.
 
 ## Automated checks

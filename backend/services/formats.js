@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const { thumbnailSupport } = require('./thumbnail');
 
 function bytes(format) { return Number(format.filesize || format.filesize_approx) || undefined; }
 function audio(format) { return format.acodec && format.acodec !== 'none'; }
@@ -10,6 +11,7 @@ function buildOptions(info, tools = { ffmpeg: true }) {
   const formats = (Array.isArray(info.formats) ? info.formats : [info]).filter(f => f && f.url && !f.has_drm && safeId(f));
   const options = [];
   const add = (option) => {
+    option.thumbnailSupport = thumbnailSupport(option.format);
     option.id = crypto.createHash('sha256').update([option.type, option.format, option.selector, option.quality].join('|')).digest('hex').slice(0, 24);
     options.push(option);
   };
