@@ -203,6 +203,47 @@ test("processing distinguishes finishing work from measured download progress", 
   assert.doesNotMatch(track(html), /aria-valuenow=/);
   assert.match(track(html), /style="width:100%"/);
   assert.doesNotMatch(html, /progress-percent|job-stats/);
+  assert.doesNotMatch(html, /Download complete/);
+});
+
+test("processing stages stay visible and cancellable until final completion", async () => {
+  for (const [stage, label] of [
+    ["merging", "Merging audio and video"],
+    ["converting_audio", "Converting audio"],
+    ["processing_thumbnail", "Processing thumbnail"],
+    ["embedding_thumbnail", "Embedding thumbnail"],
+    ["finalizing", "Finalizing file"],
+  ]) {
+    const html = await render({ status: "processing", stage, progress: 99 });
+    assert.match(html, new RegExp(label));
+    assert.match(track(html), new RegExp(`aria-valuetext="${label}"`));
+    assert.match(html, /aria-label="Cancel Progress test"/);
+    assert.doesNotMatch(html, /Download complete|Ready to save|Save file/);
+  }
+});
+
+test("nonfatal artwork warnings preserve completed media actions", async () => {
+  const html = await render({
+    status: "completed",
+    thumbnailEmbedded: false,
+    warnings: ["The thumbnail could not be embedded. Your original media is ready."],
+  });
+  assert.match(html, /class="job-warning" role="status"/);
+  assert.match(html, /Your original media is ready/);
+  assert.match(html, /Save file/);
+  assert.doesNotMatch(html, /Download failed|class="job-error"|Cover artwork embedded/);
+  const embedded = await render({ status: "completed", thumbnailEmbedded: true });
+  assert.match(embedded, /Cover artwork embedded/);
+});
+
+test("optional thumbnail remains available after main media delivery and disappears after its own delivery", async () => {
+  const sidecar = { status: "delivered", sidecarFilename: "Progress test.jpg" };
+  assert.match(await render(sidecar), /Save thumbnail/);
+  assert.doesNotMatch(await render(sidecar), />Save file</);
+  assert.doesNotMatch(await render({ ...sidecar, sidecarDelivered: true }), /Save thumbnail/);
+  const desktop = await render({ ...sidecar, sidecarSavedPath: "D:\\Downloads\\Progress test.jpg" });
+  assert.doesNotMatch(desktop, /Save thumbnail/);
+  assert.match(desktop, /Thumbnail: D:\\Downloads\\Progress test\.jpg/);
 });
 
 test("completed and terminal jobs do not leave an active progressbar visible", async () => {

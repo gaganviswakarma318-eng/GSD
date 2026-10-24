@@ -1,4 +1,4 @@
-export type MediaType = 'audio' | 'video';
+export type MediaType = "audio" | "video";
 export interface MediaOption {
   id: string;
   type: MediaType;
@@ -7,6 +7,15 @@ export interface MediaOption {
   label: string;
   requiresConversion: boolean;
   estimatedSize?: number;
+  thumbnailSupport: {
+    supported: boolean;
+    method: string | null;
+    reason: string;
+  };
+}
+export interface ThumbnailSettings {
+  embedThumbnail?: boolean;
+  thumbnailSidecar?: boolean;
 }
 export interface MediaInfo {
   url: string;
@@ -16,7 +25,14 @@ export interface MediaInfo {
   extractor: string;
   options: MediaOption[];
 }
-export type JobStatus = 'queued' | 'downloading' | 'processing' | 'completed' | 'failed' | 'cancelled' | 'delivered';
+export type JobStatus =
+  | "queued"
+  | "downloading"
+  | "processing"
+  | "completed"
+  | "failed"
+  | "cancelled"
+  | "delivered";
 export interface DownloadJob {
   id: string;
   url: string;
@@ -38,13 +54,31 @@ export interface DownloadJob {
   createdAt: number;
   updatedAt: number;
   savedPath?: string;
+  embedThumbnail: boolean;
+  thumbnailSidecar: boolean;
+  stage: string | null;
+  warnings: string[];
+  thumbnailEmbedded: boolean;
+  sidecarFilename?: string | null;
+  sidecarSavedPath?: string;
+  sidecarDelivered?: boolean;
 }
-export interface Health { tools: { ytDlp: boolean; ffmpeg: boolean }; }
+export interface Health {
+  tools: { ytDlp: boolean; ffmpeg: boolean };
+}
 export interface SaveFileHandle {
   name: string;
-  createWritable(): Promise<{ write(data: Uint8Array): Promise<void>; close(): Promise<void>; abort(): Promise<void> }>;
+  createWritable(): Promise<{
+    write(data: Uint8Array): Promise<void>;
+    close(): Promise<void>;
+    abort(): Promise<void>;
+  }>;
 }
-export interface SaveDestination { token?: string; label: string; handle?: SaveFileHandle; }
+export interface SaveDestination {
+  token?: string;
+  label: string;
+  handle?: SaveFileHandle;
+}
 declare global {
   interface Window {
     gsd?: {

@@ -92,19 +92,27 @@ Active and queued jobs have no idle expiration. Finished browser files remain av
 
 Pause/resume is intentionally unavailable because suspending yt-dlp/FFmpeg with Unix process signals is unreliable on Windows. Cancel and retry are supported.
 
+## Automatic cover artwork
+
+**Embed Thumbnail** is on by default for supported formats. GSD reuses the extracted media information, downloads the best available thumbnail with yt-dlp, and embeds it after merging or audio conversion has finished. JPEG/PNG artwork keeps its dimensions; other supported image types are converted without resizing. The artwork pass copies the original audio/video streams and preserves existing metadata. MP3 conversion, when selected, still uses the existing audio conversion settings.
+
+MP3 uses ID3v2 cover art, M4A/MP4 use MP4 cover art, FLAC uses a picture block, and MKV uses a cover attachment. WebM and other unsupported containers offer **Save thumbnail separately**. In desktop mode the image is saved next to the media; in browser mode use **Save thumbnail** on the finished download. Artwork errors produce a warning and keep the successfully downloaded media. Cancellation remains available during processing, and completion is reported only after finalization.
+
+Artwork visibility varies by player and operating system; video file managers may choose a video frame even when cover art is embedded. See [artwork compatibility, implementation details, modified files and test instructions](docs/THUMBNAIL_EMBEDDING.md).
+
 ## Configuration
 
-| Setting | Purpose |
-| --- | --- |
-| `PORT` | Browser backend port (default 3000); desktop always selects an available port. |
-| `GSD_CONCURRENCY` | Active downloads, from 1 to 4 (default 2). |
-| `GSD_MAX_PENDING` | Waiting jobs, from 1 to 100 (default 20). |
-| `GSD_TEMP_DIR` | Writable temporary root for browser mode. |
-| `GSD_BINARIES_DIR` | Development tools directory. |
-| `GSD_YTDLP_PATH` | Explicit yt-dlp executable override. |
-| `GSD_FFMPEG_PATH` | Explicit FFmpeg executable override. |
-| `GSD_FFPROBE_PATH` | Explicit FFprobe executable override. |
-| `GSD_NODE_PATH` | Explicit JavaScript runtime executable override. |
+| Setting            | Purpose                                                                        |
+| ------------------ | ------------------------------------------------------------------------------ |
+| `PORT`             | Browser backend port (default 3000); desktop always selects an available port. |
+| `GSD_CONCURRENCY`  | Active downloads, from 1 to 4 (default 2).                                     |
+| `GSD_MAX_PENDING`  | Waiting jobs, from 1 to 100 (default 20).                                      |
+| `GSD_TEMP_DIR`     | Writable temporary root for browser mode.                                      |
+| `GSD_BINARIES_DIR` | Development tools directory.                                                   |
+| `GSD_YTDLP_PATH`   | Explicit yt-dlp executable override.                                           |
+| `GSD_FFMPEG_PATH`  | Explicit FFmpeg executable override.                                           |
+| `GSD_FFPROBE_PATH` | Explicit FFprobe executable override.                                          |
+| `GSD_NODE_PATH`    | Explicit JavaScript runtime executable override.                               |
 
 Desktop paths use packaged resources for executables and writable app/temp directories for runtime files. Startup waits for tool checks and backend readiness before opening the interface. A failed startup shows a native error message. Closing the app stops its backend and media processes. The native bridge exposes folder selection and revealing files saved by completed jobs, without exposing filesystem or shell APIs to the renderer.
 

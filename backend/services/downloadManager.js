@@ -61,7 +61,7 @@ class DownloadManager {
 
   view(record) {
     if (!record) return null;
-    const { owner, raw, option, destination, filePath, tempDir, controller, promise, transfers, deliveryAcknowledged, expiring, ...view } = record;
+    const { owner, raw, option, destination, filePath, sidecarPath, tempDir, controller, promise, transfers, settling, deliveryAcknowledged, mediaDelivered, expiring, ...view } = record;
     return { ...view };
   }
 
@@ -86,7 +86,8 @@ class DownloadManager {
     if (this.queue.length >= this.config.maxPending || this.jobs.size >= 500) throw new ApiError('The download queue is full. Wait for a download to finish before adding another.', 429, 'QUEUE_FULL');
   }
 
-  async create({ url, optionId, saveToken }, owner) {
+  async create({ url, optionId, saveToken, embedThumbnail = true, thumbnailSidecar = false }, owner) {
+    if (typeof embedThumbnail !== 'boolean' || typeof thumbnailSidecar !== 'boolean') throw new ApiError('Thumbnail settings must be true or false.', 400, 'INVALID_OPTIONS');
     this.checkCapacity();
     const info = await this.metadata.get(url);
     const option = info.options.find(value => value.id === optionId);
@@ -101,6 +102,7 @@ class DownloadManager {
     this.checkCapacity();
     const time = this.now();
     const record = { id: crypto.randomUUID(), owner, url: info.public.url, title: info.public.title, thumbnail: info.public.thumbnail, type: option.type, format: option.format, quality: option.quality, status: 'queued', progress: 0, downloadedBytes: 0, totalBytes: option.estimatedSize || null, speedBytes: null, etaSeconds: null, queuePosition: null, attempt: 1, error: null, filename: null, createdAt: time, updatedAt: time, raw: info.raw, option, destination, filePath: null, tempDir: null, controller: null, promise: null, transfers: 0 };
+    Object.assign(record, { embedThumbnail, thumbnailSidecar, stage: null, warnings: [], thumbnailEmbedded: false, sidecarPath: null, sidecarFilename: null, sidecarDelivered: false, mediaDelivered: false });
     this.jobs.set(record.id, record);
     this.queue.push(record.id);
     this.positions();
@@ -117,7 +119,7 @@ class DownloadManager {
       if (!record || record.status !== 'queued') continue;
       this.active.add(id);
       record.controller = new AbortController();
-      this.update(record, { status: 'downloading', queuePosition: null });
+      this.update(record, { status: 'downloading', stage: 'downloading', queuePosition: null });
       record.promise = this.execute(record).finally(() => {
         this.active.delete(id);
         record.controller = null;
@@ -132,6 +134,7 @@ class DownloadManager {
   async execute(record) {
     const { signal } = record.controller;
     let copiedPath = null;
+    let copiedSidecar = null;
     try {
       record.tempDir = await fs.mkdtemp(path.join(this.runRoot, `${record.id}-${record.attempt}-`));
       if (signal.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
@@ -144,13 +147,21 @@ class DownloadManager {
         record.option = option;
       }
       if (signal.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
-      const output = await this.runner({ config: this.config, raw: record.raw, option: record.option, tempDir: record.tempDir, signal, onProgress: patch => {
+      const output = await this.runner({ config: this.config, raw: record.raw, option: record.option, tempDir: record.tempDir, signal, embedThumbnail: record.embedThumbnail, thumbnailSidecar: record.thumbnailSidecar, onProgress: patch => {
         if (!signal.aborted) this.update(record, patch);
       } });
       if (signal.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
       const extension = path.extname(output.filePath).slice(1).toLowerCase();
       if (!/^[a-z0-9]{2,8}$/.test(extension)) throw new Error('The source returned an unsupported file extension.');
       const filename = safeFilename(record.title, extension, record.id);
+      const warnings = [...(output.warnings || [])];
+      let sidecarFilename = null;
+      if (output.sidecarPath) {
+        const imageExtension = path.extname(output.sidecarPath).slice(1).toLowerCase();
+        if (!['jpg', 'jpeg', 'png'].includes(imageExtension) || path.dirname(path.resolve(output.sidecarPath)) !== path.resolve(record.tempDir)) throw new Error('The thumbnail tool returned an invalid output path.');
+        sidecarFilename = `${path.parse(filename).name}.${imageExtension}`;
+      }
+      this.update(record, { status: 'processing', stage: 'finalizing', speedBytes: null, etaSeconds: null });
       if (record.destination) {
         copiedPath = path.join(record.destination, filename);
         try { await fs.copyFile(output.filePath, copiedPath, constants.COPYFILE_EXCL); }
@@ -159,17 +170,31 @@ class DownloadManager {
           if (error.code === 'EEXIST') throw new Error('A file with this download name already exists. Choose another folder or remove it before retrying.');
           throw new Error('Unable to save to the selected folder. Check available space and write permission.');
         }
+        if (output.sidecarPath) {
+          const target = path.join(record.destination, sidecarFilename);
+          try {
+            await fs.copyFile(output.sidecarPath, target, constants.COPYFILE_EXCL);
+            copiedSidecar = target;
+          } catch {
+            warnings.push('The media was saved, but its separate thumbnail could not be saved. Check the folder permission, free space and existing thumbnail filename.');
+          }
+        }
         if (signal.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
         await this.cleanup(record);
-      } else record.filePath = output.filePath;
-      this.update(record, { status: 'completed', progress: 100, downloadedBytes: output.size, totalBytes: output.size, speedBytes: null, etaSeconds: null, filename, error: null, ...(copiedPath ? { savedPath: copiedPath } : {}) });
+      } else {
+        record.filePath = output.filePath;
+        record.sidecarPath = output.sidecarPath || null;
+      }
+      if (signal.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
+      this.update(record, { status: 'completed', stage: 'completed', progress: 100, downloadedBytes: output.size, totalBytes: output.size, speedBytes: null, etaSeconds: null, filename, error: null, warnings, thumbnailEmbedded: output.thumbnailEmbedded === true, sidecarFilename: copiedPath && !copiedSidecar ? null : sidecarFilename, sidecarDelivered: Boolean(copiedSidecar), ...(copiedPath ? { savedPath: copiedPath } : {}), ...(copiedSidecar ? { sidecarSavedPath: copiedSidecar } : {}) });
       record.raw = null;
     } catch (error) {
       if (copiedPath) await fs.rm(copiedPath, { force: true }).catch(() => {});
+      if (copiedSidecar) await fs.rm(copiedSidecar, { force: true }).catch(() => {});
       const cancelled = signal.aborted || error.name === 'AbortError';
       let cleanupError = null;
       try { await this.cleanup(record); } catch { cleanupError = ' Some temporary files are still in use; GSD will try cleaning them again.'; }
-      this.update(record, { status: cancelled ? 'cancelled' : 'failed', error: cleanupError ? `${cancelled ? 'Download cancelled.' : error.message}${cleanupError}` : cancelled ? null : error.message, queuePosition: null, speedBytes: null, etaSeconds: null });
+      this.update(record, { status: cancelled ? 'cancelled' : 'failed', stage: null, error: cleanupError ? `${cancelled ? 'Download cancelled.' : error.message}${cleanupError}` : cancelled ? null : error.message, queuePosition: null, speedBytes: null, etaSeconds: null });
     }
   }
 
@@ -177,6 +202,7 @@ class DownloadManager {
     if (record.tempDir) await fs.rm(record.tempDir, { recursive: true, force: true, maxRetries: 6, retryDelay: 100 });
     record.tempDir = null;
     record.filePath = null;
+    record.sidecarPath = null;
   }
 
   async cancel(id, owner) {
@@ -184,7 +210,7 @@ class DownloadManager {
     if (!ACTIVE.has(record.status)) throw new ApiError('Only queued or active downloads can be cancelled.', 409, 'INVALID_STATE');
     this.queue = this.queue.filter(value => value !== id);
     record.controller?.abort();
-    this.update(record, { status: 'cancelled', queuePosition: null, error: null, speedBytes: null, etaSeconds: null });
+    this.update(record, { status: 'cancelled', stage: null, queuePosition: null, error: null, speedBytes: null, etaSeconds: null });
     this.positions();
     if (!this.active.has(id)) this.pump();
     if (record.promise) await record.promise;
@@ -195,7 +221,7 @@ class DownloadManager {
     const record = this.owned(id, owner);
     if (!['failed', 'cancelled'].includes(record.status) || this.active.has(id)) throw new ApiError('Wait until this download has stopped before retrying.', 409, 'INVALID_STATE');
     this.checkCapacity();
-    this.update(record, { status: 'queued', attempt: record.attempt + 1, progress: 0, downloadedBytes: 0, totalBytes: record.option.estimatedSize || null, speedBytes: null, etaSeconds: null, error: null, filename: null });
+    this.update(record, { status: 'queued', stage: null, attempt: record.attempt + 1, progress: 0, downloadedBytes: 0, totalBytes: record.option.estimatedSize || null, speedBytes: null, etaSeconds: null, error: null, filename: null, warnings: [], thumbnailEmbedded: false, sidecarFilename: null, sidecarDelivered: false, mediaDelivered: false, deliveryAcknowledged: false });
     try { await this.cleanup(record); }
     catch { this.update(record, { status: 'failed', error: 'The previous attempt still has files in use. Wait a moment, then retry.' }); throw new ApiError('The previous attempt still has files in use. Wait a moment, then retry.', 409, 'CLEANUP_PENDING'); }
     if (record.status !== 'queued' || this.closed) return this.view(record);
@@ -205,19 +231,32 @@ class DownloadManager {
     return this.view(record);
   }
 
-  beginDelivery(id, owner) {
+  beginDelivery(id, owner, kind = 'media') {
     const record = this.owned(id, owner);
-    if (record.status !== 'completed' || !record.filePath) throw new ApiError(record.savedPath ? 'This file has already been saved to your selected folder.' : 'The file is not available. It may have been delivered or expired.', 409, 'FILE_UNAVAILABLE');
+    const available = kind === 'thumbnail' ? ['completed', 'delivered'].includes(record.status) && record.sidecarPath : record.status === 'completed' && record.filePath;
+    if (!available) throw new ApiError(record.savedPath ? 'This file has already been saved to your selected folder.' : 'The file is not available. It may have been delivered or expired.', 409, 'FILE_UNAVAILABLE');
     record.transfers++;
     return record;
   }
 
-  async finishDelivery(record, success) {
+  async finishDelivery(record, success, kind = 'media') {
     record.transfers = Math.max(0, record.transfers - 1);
-    if ((success || record.deliveryAcknowledged) && !record.transfers) {
-      await this.cleanup(record);
-      this.update(record, { status: 'delivered' });
+    if (success) {
+      if (kind === 'thumbnail') record.sidecarDelivered = true;
+      else record.mediaDelivered = true;
     }
+    await this.settleDelivery(record);
+  }
+
+  async settleDelivery(record) {
+    record.settling = (record.settling || 0) + 1;
+    try {
+      if (record.transfers) return;
+      const mediaDone = record.mediaDelivered || record.deliveryAcknowledged;
+      if (mediaDone && (!record.sidecarPath || record.sidecarDelivered)) await this.cleanup(record);
+      if (mediaDone) this.update(record, { status: 'delivered', sidecarDelivered: record.sidecarDelivered });
+      else if (record.sidecarDelivered) this.update(record, { sidecarDelivered: true });
+    } finally { record.settling--; }
   }
 
   async acknowledgeDelivery(id, owner) {
@@ -225,16 +264,13 @@ class DownloadManager {
     if (record.status === 'delivered') return this.view(record);
     if (record.status !== 'completed' || record.savedPath) throw new ApiError('This download is not awaiting browser delivery.', 409, 'INVALID_STATE');
     record.deliveryAcknowledged = true;
-    if (!record.transfers) {
-      await this.cleanup(record);
-      this.update(record, { status: 'delivered' });
-    }
+    await this.settleDelivery(record);
     return this.view(record);
   }
 
   async sweep() {
     for (const [id, record] of this.jobs) {
-      if (ACTIVE.has(record.status) || this.active.has(id) || record.transfers || this.now() - record.updatedAt < this.config.terminalTtlMs) continue;
+      if (ACTIVE.has(record.status) || this.active.has(id) || record.transfers || record.settling || this.now() - record.updatedAt < this.config.terminalTtlMs) continue;
       record.expiring = true;
       await this.cleanup(record);
       this.jobs.delete(id);
