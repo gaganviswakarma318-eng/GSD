@@ -37,6 +37,8 @@ npm run web
 
 Open `http://127.0.0.1:3000`. The same built React interface is served by Express. Browser downloads use a save picker where the browser supports it, or the browser's configured download location. Browsers cannot grant a server arbitrary access to a local folder. Enable “Ask where to save each file” in browser settings when using the standard download fallback.
 
+The Appearance selector offers Light, Dark and OLED-friendly Black themes. Your choice is saved locally and applied before the interface renders.
+
 For the desktop app during development:
 
 ```powershell
