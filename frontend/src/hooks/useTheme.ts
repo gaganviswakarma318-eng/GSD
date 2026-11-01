@@ -13,7 +13,7 @@ export function useTheme() {
     document.documentElement.style.colorScheme = theme;
     document
       .querySelector('meta[name="theme-color"]')
-      ?.setAttribute("content", theme === "dark" ? "#22271f" : "#f4f5ef");
+      ?.setAttribute("content", theme === "dark" ? "#1d221e" : "#f3f2ec");
     try {
       localStorage.setItem(STORAGE_KEY, theme);
     } catch {
