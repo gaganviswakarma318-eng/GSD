@@ -66,6 +66,19 @@ async function license(pin, file) {
 }
 
 async function prepare() {
+  if (process.platform === 'linux') {
+    if (process.arch !== 'x64') throw new Error('The Linux preparation targets x64. Install yt-dlp manually for other architectures.');
+    await fs.mkdir(cache, { recursive: true });
+    await fs.mkdir(path.join(destination, 'licenses'), { recursive: true });
+    const pin = pins.linuxYtDlp;
+    const ytDlp = await verifiedDownload('yt-dlp', pin);
+    const target = path.join(destination, 'yt-dlp');
+    await fs.copyFile(ytDlp, target);
+    await fs.chmod(target, 0o755);
+    await license(pin, 'yt-dlp-LICENSE.txt');
+    console.log(`Verified yt-dlp ${pin.version} prepared in backend/binaries. Install FFmpeg and Node.js separately.`);
+    return;
+  }
   if (process.platform !== 'win32' || process.arch !== 'x64') throw new Error('This preparation targets Windows x64. Build the Windows installer on Windows x64.');
   await fs.mkdir(cache, { recursive: true });
   await fs.mkdir(path.join(destination, 'licenses'), { recursive: true });

@@ -4,6 +4,31 @@ Music and video, saved simply. GSD uses React, TypeScript and Vite for its inter
 
 This is an implementation of the existing GSDM project. The original preview, audio/video workflow, yt-dlp integration, metadata caching, progress updates and FIFO queue have been retained and rebuilt around independent download jobs. The old request-bound download lifecycle and unreliable Windows pause signals have been removed.
 
+## Run on Linux
+
+Linux is supported as a local web app; a Linux desktop installer is not currently provided. Requirements: Node.js 24 or newer, npm, and FFmpeg/FFprobe.
+
+On Debian/Ubuntu, install system requirements and prepare the current pinned yt-dlp release:
+
+```bash
+sudo apt update
+sudo apt install ffmpeg
+npm ci
+npm run prepare:tools:linux
+npm run build
+npm run web
+```
+
+Open `http://127.0.0.1:3000`. The preparation downloads yt-dlp from its official release and verifies its SHA-256 against the upstream checksum manifest. FFmpeg and FFprobe are supplied by the system package; Node.js is the runtime already used to run GSD.
+
+For sources that require your own account, you can optionally let yt-dlp use a supported local browser profile. Sign in to the source in that browser, then start GSD from a terminal, for example:
+
+```bash
+GSD_COOKIES_FROM_BROWSER=firefox npm run web
+```
+
+Use `chrome` instead of `firefox` for Chrome. Browser cookie access depends on your browser, profile, and Linux keyring configuration. This option uses your signed-in session only; it does not bypass DRM, subscriptions, or access restrictions. Do not share browser profiles or cookies with anyone.
+
 ## Install on Windows
 
 Use the generated `GSD-Setup-2.0.0-x64.exe` installer in `release/`. It includes Electron's application runtime, standalone yt-dlp, FFmpeg/FFprobe and a Node runtime for yt-dlp's JavaScript challenges. End users do not need Node.js, Python, a terminal or separate media tools.
@@ -115,6 +140,7 @@ Artwork visibility varies by player and operating system; video file managers ma
 | `GSD_FFMPEG_PATH`  | Explicit FFmpeg executable override.                                           |
 | `GSD_FFPROBE_PATH` | Explicit FFprobe executable override.                                          |
 | `GSD_NODE_PATH`    | Explicit JavaScript runtime executable override.                               |
+| `GSD_COOKIES_FROM_BROWSER` | Optional yt-dlp browser name/profile for an authorized signed-in session.      |
 
 Desktop paths use packaged resources for executables and writable app/temp directories for runtime files. Startup waits for tool checks and backend readiness before opening the interface. A failed startup shows a native error message. Closing the app stops its backend and media processes. The native bridge exposes folder selection and revealing files saved by completed jobs, without exposing filesystem or shell APIs to the renderer.
 

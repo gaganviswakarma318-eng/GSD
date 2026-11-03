@@ -23,6 +23,7 @@
     "smoke:desktop": "node scripts/smoke-desktop.cjs",
     "build": "npm run typecheck && vite build --config vite.config.mts",
     "prepare:tools": "node scripts/prepare-tools.cjs",
+    "prepare:tools:linux": "node scripts/prepare-tools.cjs",
     "build:win": "npm run prepare:tools && npm run build && electron-builder --win nsis --x64 --publish never",
     "build:unpacked": "npm run prepare:tools && npm run build && electron-builder --win --x64 --dir --publish never"
   },

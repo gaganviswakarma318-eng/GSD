@@ -109,6 +109,23 @@ test("download args use pinned source IDs and cached metadata; only MP3 transcod
   assert.equal(mp3[mp3.indexOf("--audio-format") + 1], "mp3");
 });
 
+test("browser cookies are opt-in and passed as a separate yt-dlp argument", () => {
+  const config = createConfig({ cookiesFromBrowser: "firefox" });
+  const args = buildArgs(
+    config,
+    buildOptions(raw).find((option) => option.quality === "1080p"),
+    "source.json",
+    "temp",
+  );
+  assert.equal(args[args.indexOf("--cookies-from-browser") + 1], "firefox");
+  assert.ok(!buildArgs(
+    createConfig({ cookiesFromBrowser: "" }),
+    buildOptions(raw).find((option) => option.quality === "1080p"),
+    "source.json",
+    "temp",
+  ).includes("--cookies-from-browser"));
+});
+
 test("progress parses machine JSON across unavailable fields and rejects malformed output", () => {
   const progress = parseProgress(
     'GSD_PROGRESS:{"downloaded_bytes":50,"total_bytes":100,"speed":25,"eta":2,"format_id":"v","status":"downloading"}',
