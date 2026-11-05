@@ -31,19 +31,20 @@ function toolPaths() {
   const root = app.isPackaged
     ? path.join(process.resourcesPath, "binaries")
     : path.join(__dirname, "..", "backend", "binaries");
+  const suffix = process.platform === "win32" ? ".exe" : "";
   return {
     ytDlp: app.isPackaged
-      ? path.join(root, "yt-dlp.exe")
-      : process.env.GSD_YTDLP_PATH || path.join(root, "yt-dlp.exe"),
-    ffmpeg: app.isPackaged
-      ? path.join(root, "ffmpeg.exe")
-      : process.env.GSD_FFMPEG_PATH || path.join(root, "ffmpeg.exe"),
-    ffprobe: app.isPackaged
-      ? path.join(root, "ffprobe.exe")
-      : process.env.GSD_FFPROBE_PATH || path.join(root, "ffprobe.exe"),
+      ? path.join(root, `yt-dlp${suffix}`)
+      : process.env.GSD_YTDLP_PATH || path.join(root, `yt-dlp${suffix}`),
+    ffmpeg:
+      process.env.GSD_FFMPEG_PATH ||
+      (process.platform === "linux" ? "ffmpeg" : path.join(root, `ffmpeg${suffix}`)),
+    ffprobe:
+      process.env.GSD_FFPROBE_PATH ||
+      (process.platform === "linux" ? "ffprobe" : path.join(root, `ffprobe${suffix}`)),
     node: app.isPackaged
-      ? path.join(root, "node.exe")
-      : process.env.GSD_NODE_PATH || path.join(root, "node.exe"),
+      ? path.join(root, `node${suffix}`)
+      : process.env.GSD_NODE_PATH || path.join(root, `node${suffix}`),
   };
 }
 
@@ -51,7 +52,6 @@ async function verifyTools(tools) {
   const results = await Promise.all(
     Object.entries(tools).map(async ([name, executable]) => {
       try {
-        await fs.access(executable);
         const args =
           name === "ffmpeg" || name === "ffprobe"
             ? ["-version"]
@@ -63,8 +63,15 @@ async function verifyTools(tools) {
         });
         return [name, stdout.split(/\r?\n/)[0].trim()];
       } catch (error) {
+        const remediation =
+          process.platform === "linux" &&
+          (name === "ffmpeg" || name === "ffprobe")
+            ? "Install FFmpeg with: sudo apt install ffmpeg."
+            : app.isPackaged
+              ? "Reinstall GSD to restore its bundled media tools."
+              : "Run npm run prepare:tools before starting the desktop app.";
         throw new Error(
-          `${name} could not start (${executable}). ${app.isPackaged ? "Reinstall GSD to restore its bundled media tools." : "Run npm run prepare:tools before starting the desktop app."} ${error.message}`,
+          `${name} could not start (${executable}). ${remediation} ${error.message}`,
         );
       }
     }),
@@ -133,7 +140,12 @@ async function createWindow({ visible = true } = {}) {
     backgroundColor: "#f4f5ef",
     show: false,
     autoHideMenuBar: true,
-    icon: path.join(__dirname, "..", "build", "icon.ico"),
+    icon: path.join(
+      __dirname,
+      "..",
+      "build",
+      process.platform === "linux" ? "icon.png" : "icon.ico",
+    ),
     webPreferences: {
       preload: path.join(__dirname, "preload.js"),
       contextIsolation: true,
