@@ -20,7 +20,8 @@ function parseProgress(line) {
 function buildArgs(config, option, infoPath, tempDir) {
   const args = [...commonArgs(config), '--no-simulate', '--newline', '--progress', '--progress-delta', '0.3', '--concurrent-fragments', '3', '--fragment-retries', '3', '--windows-filenames', '--no-overwrites', '--paths', tempDir, '--output', 'media.%(ext)s', '--format', option.selector,
     '--progress-template', 'download:GSD_PROGRESS:{"downloaded_bytes":%(progress.downloaded_bytes|0)s,"total_bytes":%(progress.total_bytes|0)s,"total_bytes_estimate":%(progress.total_bytes_estimate|0)s,"speed":%(progress.speed|0)s,"eta":%(progress.eta|0)s,"format_id":%(info.format_id)j,"status":%(progress.status)j}', '--progress-template', 'postprocess:GSD_PROCESSING:{"postprocessor":%(progress.postprocessor)j,"status":%(progress.status)j}', '--print', 'after_move:GSD_FILE:%(filepath)j', '--load-info-json', infoPath];
-  if (config.tools.ffmpeg) args.push('--ffmpeg-location', config.tools.ffmpeg);
+  const ffmpeg = config.tools.ffmpeg;
+  if (ffmpeg && (/[\\/]/.test(ffmpeg) || /^[A-Za-z]:/.test(ffmpeg))) args.push('--ffmpeg-location', ffmpeg);
   if (option.merged) args.push('--merge-output-format', option.format);
   if (option.extractAudio) args.push('--extract-audio', '--audio-format', 'mp3', '--audio-quality', '2');
   return args;
