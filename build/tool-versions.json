@@ -1,5 +1,23 @@
 {
   "platform": "win32-x64",
+  "linuxYtDlp": {
+    "version": "2026.10.21",
+    "url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.21/yt-dlp_linux",
+    "sha256": "d8bd33fca9d5b23bd5b9952b3fca36db5c46331933fda9f598a3da14ce2c243f",
+    "manifest": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.21/SHA2-256SUMS",
+    "manifestName": "yt-dlp_linux",
+    "license": "https://raw.githubusercontent.com/yt-dlp/yt-dlp/2026.10.21/LICENSE",
+    "source": "https://github.com/yt-dlp/yt-dlp/tree/2026.10.21"
+  },
+  "linuxNode": {
+    "version": "24.22.1",
+    "url": "https://nodejs.org/dist/v24.22.1/node-v24.22.1-linux-x64.tar.xz",
+    "sha256": "6c172a9ab6718f7b801fb5a7bd486af2ee5e32758086a04b84fcce2aa77095e6",
+    "manifest": "https://nodejs.org/dist/v24.22.1/SHASUMS256.txt",
+    "manifestName": "node-v24.22.1-linux-x64.tar.xz",
+    "license": "https://raw.githubusercontent.com/nodejs/node/v24.22.1/LICENSE",
+    "source": "https://nodejs.org/dist/v24.22.1/"
+  },
   "ytDlp": {
     "version": "2026.10.21",
     "url": "https://github.com/yt-dlp/yt-dlp/releases/download/2026.10.21/yt-dlp.exe",

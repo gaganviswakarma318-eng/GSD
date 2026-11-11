@@ -148,7 +148,11 @@ export function DownloadCard({
         >
           <div
             style={{
-              width: `${job.status === "processing" ? 100 : indeterminate ? 35 : progress}%`,
+              width: "100%",
+              transform:
+                job.status === "downloading" && !indeterminate
+                  ? `scaleX(${progress / 100})`
+                  : undefined,
             }}
           />
         </div>

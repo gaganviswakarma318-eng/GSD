@@ -3,7 +3,9 @@ const { ApiError, mediaError, validatePublicUrl } = require('../utils/errors');
 const { buildOptions, publicOption } = require('./formats');
 
 function commonArgs(config) {
-  return ['--ignore-config', '--no-plugin-dirs', '--no-playlist', '--no-warnings', '--no-colors', '--socket-timeout', '30', '--retries', '2', '--no-js-runtimes', '--js-runtimes', `node:${config.tools.node}`];
+  const args = ['--ignore-config', '--no-plugin-dirs', '--no-playlist', '--no-warnings', '--no-colors', '--socket-timeout', '30', '--retries', '2', '--no-js-runtimes', '--js-runtimes', `node:${config.tools.node}`];
+  if (config.cookiesFromBrowser) args.push('--cookies-from-browser', config.cookiesFromBrowser);
+  return args;
 }
 
 async function enrichDirectMedia(raw, config, availability, signal) {
@@ -51,7 +53,7 @@ class MetadataService {
     const cached = this.cache.get(url);
     if (!refresh && cached && cached.expires > Date.now()) return cached.value;
     if (this.pending.has(url)) return this.pending.get(url);
-    if (!this.availability.ytDlp) throw new ApiError('yt-dlp is missing or cannot run. Reinstall GSD, or configure GSD_YTDLP_PATH for development.', 503, 'MISSING_TOOL');
+    if (!this.availability.ytDlp) throw new ApiError('yt-dlp is missing or cannot run. Run npm run prepare:tools:linux, or configure GSD_YTDLP_PATH.', 503, 'MISSING_TOOL');
     if (this.waiting.length >= 20) throw new ApiError('Too many links are being analyzed. Try again shortly.', 429, 'QUEUE_FULL');
     const promise = this.schedule(async () => {
       const controller = new AbortController();

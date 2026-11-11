@@ -139,7 +139,7 @@ test("known download size advances the visible bar and accessible value together
     );
     assert.match(
       track(html),
-      new RegExp(`style="width:${String(progress).replace(".", "\\.")}%"`),
+      new RegExp(`style="width:100%;transform:scaleX\\(${progress / 100}\\)"`),
     );
     assert.match(
       html,
@@ -159,7 +159,7 @@ test("a newly discovered size switches an active download from indeterminate to 
   });
   assert.doesNotMatch(track(unknown), /aria-valuenow=/);
   assert.match(track(measured), /aria-valuenow="50"/);
-  assert.match(track(measured), /style="width:50%"/);
+  assert.match(track(measured), /style="width:100%;transform:scaleX\(0\.5\)"/);
 });
 
 test("invalid percentages cannot produce non-finite or out-of-range progress widths", async () => {
@@ -173,7 +173,10 @@ test("invalid percentages cannot produce non-finite or out-of-range progress wid
     const html = await render({ progress });
     const indicator = track(html);
     assert.match(indicator, new RegExp(`aria-valuenow="${expected}"`));
-    assert.match(indicator, new RegExp(`style="width:${expected}%"`));
+    assert.match(
+      indicator,
+      new RegExp(`style="width:100%;transform:scaleX\\(${expected / 100}\\)"`),
+    );
     assert.match(html, new RegExp(`class="progress-percent">${expected}%`));
     assert.doesNotMatch(indicator, /NaN|Infinity/);
   }

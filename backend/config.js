@@ -69,6 +69,8 @@ function createConfig(options = {}) {
     maxMetadataEntries: integer(options.maxMetadataEntries, 100, 1, 500),
     metadataConcurrency: integer(options.metadataConcurrency, 2, 1, 4),
     allowPrivateUrls: options.allowPrivateUrls === true,
+    cookiesFromBrowser:
+      options.cookiesFromBrowser ?? process.env.GSD_COOKIES_FROM_BROWSER ?? "",
     resolveDestination: options.resolveDestination,
     // Preserve complete defaults even when only some tools are overridden.
     tools: {

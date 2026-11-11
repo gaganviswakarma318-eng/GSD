@@ -66,9 +66,57 @@ async function license(pin, file) {
 }
 
 async function prepare() {
+  if (process.platform === 'linux') {
+    if (process.arch !== 'x64') throw new Error('The Linux preparation targets x64. Install yt-dlp manually for other architectures.');
+    await fs.mkdir(cache, { recursive: true });
+    await fs.mkdir(path.join(destination, 'licenses'), { recursive: true });
+    await Promise.all(['yt-dlp.exe', 'ffmpeg.exe', 'ffprobe.exe', 'node.exe', 'licenses/THIRD-PARTY-NOTICES.txt'].map((name) => fs.rm(path.join(destination, name), { force: true })));
+    const [ytDlp, node] = await Promise.all([
+      verifiedDownload('yt-dlp', pins.linuxYtDlp),
+      verifiedDownload('Node', pins.linuxNode),
+    ]);
+    const ytDlpTarget = path.join(destination, 'yt-dlp');
+    await fs.copyFile(ytDlp, ytDlpTarget);
+    await fs.chmod(ytDlpTarget, 0o755);
+
+    const extractRoot = await fs.mkdtemp(path.join(cache, `node-${pins.linuxNode.version}-`));
+    try {
+      await runFile('tar', [
+        '-xJf', node, '-C', extractRoot, '--strip-components=1',
+        `node-v${pins.linuxNode.version}-linux-x64/bin/node`,
+      ], { timeout: 5 * 60_000, maxBuffer: 1024 * 1024 });
+      const nodeTarget = path.join(destination, 'node');
+      await fs.copyFile(path.join(extractRoot, 'bin', 'node'), nodeTarget);
+      await fs.chmod(nodeTarget, 0o755);
+    } finally {
+      const relative = path.relative(path.resolve(cache), path.resolve(extractRoot));
+      if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) throw new Error('Unsafe extraction cleanup path.');
+      await fs.rm(extractRoot, { recursive: true, force: true });
+    }
+
+    await Promise.all([
+      license(pins.linuxYtDlp, 'yt-dlp-LICENSE.txt'),
+      license(pins.linuxNode, 'Node-LICENSE.txt'),
+    ]);
+    await fs.writeFile(
+      path.join(destination, 'licenses', 'THIRD-PARTY-NOTICES.txt'),
+      `GSD bundles these unmodified Linux x64 tools:\n\nyt-dlp ${pins.linuxYtDlp.version}\n${pins.linuxYtDlp.url}\nSource and license: ${pins.linuxYtDlp.source}\n\nNode.js ${pins.linuxNode.version}\n${pins.linuxNode.url}\nSource, license and bundled dependency notices: ${pins.linuxNode.source}\n\nFFmpeg and FFprobe are provided by the Ubuntu ffmpeg package.\nElectron and application package dependency license notices are retained in the installed application.\n`,
+    );
+    const files = {};
+    for (const name of ['yt-dlp', 'node']) files[name] = await sha256(path.join(destination, name));
+    await fs.writeFile(path.join(destination, 'versions.json'), `${JSON.stringify({
+      platform: 'linux-x64',
+      linuxYtDlp: pins.linuxYtDlp,
+      linuxNode: pins.linuxNode,
+      files,
+    }, null, 2)}\n`);
+    console.log('Verified Linux x64 media tools prepared in backend/binaries. FFmpeg is installed as an Ubuntu package dependency.');
+    return;
+  }
   if (process.platform !== 'win32' || process.arch !== 'x64') throw new Error('This preparation targets Windows x64. Build the Windows installer on Windows x64.');
   await fs.mkdir(cache, { recursive: true });
   await fs.mkdir(path.join(destination, 'licenses'), { recursive: true });
+  await Promise.all(['yt-dlp', 'node', 'licenses/THIRD-PARTY-NOTICES.txt'].map((name) => fs.rm(path.join(destination, name), { force: true })));
   const [ytDlp, ffmpeg, node] = await Promise.all([
     verifiedDownload('yt-dlp', pins.ytDlp), verifiedDownload('FFmpeg', pins.ffmpeg), verifiedDownload('Node', pins.node),
   ]);

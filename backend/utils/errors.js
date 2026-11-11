@@ -23,7 +23,7 @@ function mediaError(stderr) {
       text,
     )
   )
-    return "This source requires permission or sign-in, or has blocked this request. GSD cannot download it with the current session.";
+    return "This source requires sign-in or is blocking the request. If you have permission to access it, try running GSD with GSD_COOKIES_FROM_BROWSER=firefox (or chrome) after signing in there. Otherwise use the source's official download option.";
   if (/DRM|protected/i.test(text))
     return "This media is protected by DRM and cannot be downloaded.";
   if (/requested format.*not available/i.test(text))

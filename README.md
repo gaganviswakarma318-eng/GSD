@@ -1,8 +1,33 @@
 # GSD
 
-Music and video, saved simply. GSD uses React, TypeScript and Vite for its interface, Express for a local download service, yt-dlp for extraction, FFmpeg for merging/audio conversion, and Electron for the Windows desktop app.
+Music and video, saved simply. GSD uses React, TypeScript and Vite for its interface, Express for a local download service, yt-dlp for extraction, FFmpeg for merging/audio conversion, and Electron for its Windows and Linux desktop apps.
 
 This is an implementation of the existing GSDM project. The original preview, audio/video workflow, yt-dlp integration, metadata caching, progress updates and FIFO queue have been retained and rebuilt around independent download jobs. The old request-bound download lifecycle and unreliable Windows pause signals have been removed.
+
+## Run on Linux
+
+The web app runs on Linux, and an Ubuntu x64 desktop installer can be built with the instructions below. To run the web app, install Node.js 24 or newer, npm, and FFmpeg/FFprobe.
+
+On Debian/Ubuntu, install system requirements and prepare the current pinned yt-dlp release:
+
+```bash
+sudo apt update
+sudo apt install ffmpeg
+npm ci
+npm run prepare:tools:linux
+npm run build
+npm run web
+```
+
+Open `http://127.0.0.1:3000`. The preparation downloads yt-dlp from its official release and verifies its SHA-256 against the upstream checksum manifest. FFmpeg and FFprobe are supplied by the system package; Node.js is the runtime already used to run GSD.
+
+For sources that require your own account, you can optionally let yt-dlp use a supported local browser profile. Sign in to the source in that browser, then start GSD from a terminal, for example:
+
+```bash
+GSD_COOKIES_FROM_BROWSER=firefox npm run web
+```
+
+Use `chrome` instead of `firefox` for Chrome. Browser cookie access depends on your browser, profile, and Linux keyring configuration. This option uses your signed-in session only; it does not bypass DRM, subscriptions, or access restrictions. Do not share browser profiles or cookies with anyone.
 
 ## Install on Windows
 
@@ -14,7 +39,19 @@ Use the generated `GSD-Setup-2.0.0-x64.exe` installer in `release/`. It includes
 4. Choose Audio or Video, an available format and source quality.
 5. Choose a save folder with the native picker and start the download.
 
-The build is unsigned. Windows may display a publisher/SmartScreen prompt. For signed distribution, enable `win.signExecutable` in `electron-builder.yml` and configure a code-signing certificate. Windows x64 is the packaged target; other platforms have not been packaged.
+The build is unsigned. Windows may display a publisher/SmartScreen prompt. For signed distribution, enable `win.signExecutable` in `electron-builder.yml` and configure a code-signing certificate. Windows x64 is the packaged target.
+
+## Build a Linux installer
+
+On Ubuntu x64 with Node.js 24 or newer:
+
+```bash
+npm ci
+npm run build:linux
+sudo apt install ./release/GSD-Setup-2.0.0-amd64.deb
+```
+
+`build:linux` downloads pinned Linux x64 yt-dlp and Node.js releases, verifies their SHA-256 digests, builds the app, and writes the Debian installer under `release/`. FFmpeg and FFprobe are declared as package dependencies and installed by apt. The Linux installer is unsigned; install a package only if you trust its source.
 
 ## Develop
 
@@ -36,6 +73,8 @@ npm run web
 ```
 
 Open `http://127.0.0.1:3000`. The same built React interface is served by Express. Browser downloads use a save picker where the browser supports it, or the browser's configured download location. Browsers cannot grant a server arbitrary access to a local folder. Enable “Ask where to save each file” in browser settings when using the standard download fallback.
+
+The Appearance selector offers Light, Dark and OLED-friendly Black themes. Your choice is saved locally and applied before the interface renders.
 
 For the desktop app during development:
 
@@ -78,7 +117,7 @@ If Electron is already extracted and the build environment cannot use its defaul
 - `backend/tests/`: queue, retry, cancellation, lifecycle and API regressions.
 - `electron/`: isolated preload bridge, native folder grants and desktop lifecycle.
 - `scripts/`: development launcher and verified tool preparation.
-- `electron-builder.yml`: Windows packaging configuration.
+- `electron-builder.yml`: Windows and Linux packaging configuration.
 
 Only Express, React and React DOM are application dependencies. Child processes keep extraction, conversion and download work off the interface thread. Downloads use exact source format IDs; MP3 requires audio extraction/conversion and FFmpeg. Native formats and compatible video/audio merges avoid transcoding. Quality options describe the actual source rather than an invented resolution or bitrate.
 
@@ -113,6 +152,7 @@ Artwork visibility varies by player and operating system; video file managers ma
 | `GSD_FFMPEG_PATH`  | Explicit FFmpeg executable override.                                           |
 | `GSD_FFPROBE_PATH` | Explicit FFprobe executable override.                                          |
 | `GSD_NODE_PATH`    | Explicit JavaScript runtime executable override.                               |
+| `GSD_COOKIES_FROM_BROWSER` | Optional yt-dlp browser name/profile for an authorized signed-in session.      |
 
 Desktop paths use packaged resources for executables and writable app/temp directories for runtime files. Startup waits for tool checks and backend readiness before opening the interface. A failed startup shows a native error message. Closing the app stops its backend and media processes. The native bridge exposes folder selection and revealing files saved by completed jobs, without exposing filesystem or shell APIs to the renderer.
 

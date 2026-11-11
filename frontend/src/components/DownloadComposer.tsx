@@ -1,7 +1,12 @@
 import { useEffect, useRef, useState } from "react";
 import { isDesktop } from "../config";
 import { useMediaInfo } from "../hooks/useMediaInfo";
-import type { DownloadJob, MediaType, SaveDestination, ThumbnailSettings } from "../types";
+import type {
+  DownloadJob,
+  MediaType,
+  SaveDestination,
+  ThumbnailSettings,
+} from "../types";
 import {
   errorMessage,
   formatBytes,
@@ -21,7 +26,11 @@ interface Props {
     settings: ThumbnailSettings,
   ): Promise<DownloadJob>;
 }
-export function DownloadComposer({ unavailable, ffmpegAvailable, onQueue }: Props) {
+export function DownloadComposer({
+  unavailable,
+  ffmpegAvailable,
+  onQueue,
+}: Props) {
   const [url, setUrl] = useState("");
   const [type, setType] = useState<MediaType>("video");
   const [optionId, setOptionId] = useState("");
@@ -180,15 +189,28 @@ export function DownloadComposer({ unavailable, ffmpegAvailable, onQueue }: Prop
             aria-invalid={Boolean(error)}
             required
           />
-          <button
-            className="paste-button"
-            type="button"
-            onClick={() => void paste()}
-            title="Paste link from clipboard"
-          >
-            <Icon name="paste" size={16} />
-            <span>Paste</span>
-          </button>
+          {url.trim() ? (
+            <button
+              className="paste-button"
+              type="button"
+              onClick={() => changeUrl("")}
+              title="Clear media link"
+              aria-label="Clear media link"
+            >
+              <Icon name="close" size={16} />
+              <span>Clear</span>
+            </button>
+          ) : (
+            <button
+              className="paste-button"
+              type="button"
+              onClick={() => void paste()}
+              title="Paste link from clipboard"
+            >
+              <Icon name="paste" size={16} />
+              <span>Paste</span>
+            </button>
+          )}
         </div>
         <div className="link-under">
           <p id="link-hint">Public media links supported by yt-dlp.</p>
@@ -320,7 +342,8 @@ export function DownloadComposer({ unavailable, ffmpegAvailable, onQueue }: Prop
             {!selected
               ? "Choose a format to check embedded artwork support."
               : !thumbnailSupported
-                ? selected.thumbnailSupport?.reason || `${selected.format.toUpperCase()} does not support embedded artwork.`
+                ? selected.thumbnailSupport?.reason ||
+                  `${selected.format.toUpperCase()} does not support embedded artwork.`
                 : !ffmpegAvailable
                   ? `${selected.format.toUpperCase()} supports embedded artwork. FFmpeg is required to embed it.`
                   : `${selected.thumbnailSupport.reason} Artwork visibility depends on your media player and device.`}

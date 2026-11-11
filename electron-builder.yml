@@ -15,6 +15,7 @@ files:
   - "!backend/binaries{,/**/*}"
   - electron/**/*
   - build/icon.ico
+  - build/icon.png
   - package.json
 extraResources:
   - from: backend/binaries
@@ -32,6 +33,19 @@ win:
         - x64
   requestedExecutionLevel: asInvoker
   signExecutable: false
+linux:
+  icon: build/icon.png
+  executableName: GSD
+  category: AudioVideo
+  syncDesktopName: true
+  target:
+    - target: deb
+      arch:
+        - x64
+deb:
+  maintainer: GaganStudio
+  depends:
+    - ffmpeg
 nsis:
   oneClick: false
   perMachine: false

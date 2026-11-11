@@ -96,6 +96,7 @@ test("download args use pinned source IDs and cached metadata; only MP3 transcod
     !mp4.includes("--trim-filenames"),
     "fixed output names must not truncate the Windows directory path",
   );
+  assert.ok(mp4.includes("--ffmpeg-location"));
   assert.ok(!mp4.includes("--recode-video"));
   assert.ok(!mp4.includes("--extract-audio"));
   const mp3 = buildArgs(
@@ -107,6 +108,35 @@ test("download args use pinned source IDs and cached metadata; only MP3 transcod
   assert.ok(mp3.includes("--extract-audio"));
   assert.ok(mp3.includes("node:C:\\Tools\\node.exe"));
   assert.equal(mp3[mp3.indexOf("--audio-format") + 1], "mp3");
+});
+
+test("yt-dlp discovers FFmpeg from PATH when configured by command name", () => {
+  const config = createConfig({ tools: { ffmpeg: "ffmpeg" } });
+  const args = buildArgs(
+    config,
+    buildOptions(raw).find((option) => option.quality === "1080p"),
+    "source.json",
+    "temp",
+  );
+  assert.ok(!args.includes("--ffmpeg-location"));
+  assert.ok(args.includes("--merge-output-format"));
+});
+
+test("browser cookies are opt-in and passed as a separate yt-dlp argument", () => {
+  const config = createConfig({ cookiesFromBrowser: "firefox" });
+  const args = buildArgs(
+    config,
+    buildOptions(raw).find((option) => option.quality === "1080p"),
+    "source.json",
+    "temp",
+  );
+  assert.equal(args[args.indexOf("--cookies-from-browser") + 1], "firefox");
+  assert.ok(!buildArgs(
+    createConfig({ cookiesFromBrowser: "" }),
+    buildOptions(raw).find((option) => option.quality === "1080p"),
+    "source.json",
+    "temp",
+  ).includes("--cookies-from-browser"));
 });
 
 test("progress parses machine JSON across unavailable fields and rejects malformed output", () => {
