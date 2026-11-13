@@ -133,7 +133,9 @@ Pause/resume is intentionally unavailable because suspending yt-dlp/FFmpeg with 
 
 ## Clip downloads
 
-The **Clip Downloader** uses the metadata duration to validate the selected start and end. Enter times as `MM:SS` or `HH:MM:SS`, or adjust the start/end sliders, then choose an available video format and quality. Clip jobs use the same queue, progress, save-location, cancel, retry and delivery behavior as full downloads. FFmpeg is required; some supported media sources may not support section downloads. GSD asks yt-dlp/FFmpeg to force keyframes at the cut points, which can re-encode the clip and take longer than downloading the full source format.
+Open **Clip Studio** from the navigation or at `/clip` to use the dedicated clip editor. Analyze a video link, play the seekable preview, and set the start and end on the timeline or with `MM:SS` / `HH:MM:SS` controls. Preview preparation downloads a temporary video copy (up to 480p when available, with a 512 MB limit), so it can use additional data and take time. GSD removes that preview when you leave the editor or after 15 minutes without activity.
+
+Choose an available video format and quality to download the selected range. Clip jobs use the same queue, progress, save-location, cancel, retry and delivery behavior as full downloads. FFmpeg is required; some supported media sources may not support section downloads. GSD asks yt-dlp/FFmpeg to force keyframes at the cut points, which can re-encode the clip and take longer than downloading the full source format.
 
 ## Automatic cover artwork
 

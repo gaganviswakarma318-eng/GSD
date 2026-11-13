@@ -29,6 +29,13 @@ export interface MediaInfo {
   extractor: string;
   options: MediaOption[];
 }
+export interface VideoPreview {
+  id: string;
+  status: "preparing" | "ready" | "failed" | "cancelled";
+  progress: number;
+  error: string | null;
+  duration: number | null;
+}
 export type JobStatus =
   | "queued"
   | "downloading"

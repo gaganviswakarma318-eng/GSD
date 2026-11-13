@@ -18,9 +18,6 @@ export default function App() {
     {},
   );
   const [announcement, setAnnouncement] = useState("");
-  const [mobileDownloader, setMobileDownloader] = useState<"full" | "clip">(
-    "full",
-  );
   const handles = useRef(new Map<string, SaveFileHandle>());
   const ownedJobs = useRef(new Set<string>());
   const deliveredAttempts = useRef(new Set<string>());
@@ -115,6 +112,7 @@ export default function App() {
     await downloads.retry(id);
   }
   const missingTools = health && (!health.tools.ytDlp || !health.tools.ffmpeg);
+  const clipPage = window.location.pathname === "/clip";
   return (
     <div className="app-shell">
       <a className="skip-link" href="#main-content">
@@ -130,6 +128,14 @@ export default function App() {
           </span>
         </a>
         <div className="header-actions">
+          <nav className="app-navigation" aria-label="Main navigation">
+            <a href="/" aria-current={!clipPage ? "page" : undefined}>
+              Full downloader
+            </a>
+            <a href="/clip" aria-current={clipPage ? "page" : undefined}>
+              Clip studio
+            </a>
+          </nav>
           <ThemeToggle />
           <span
             className={`connection-status ${healthy ? "" : "connection-waiting"}`}
@@ -151,7 +157,7 @@ export default function App() {
             <div className="help-popover">
               <h2>Get. Save. Done.</h2>
               <ol>
-                <li>Choose Full Video or Clip, then paste a supported media link.</li>
+                <li>Choose Full Video or open Clip Studio, then paste a supported media link.</li>
                 <li>Preview it, choose a format and quality; for a clip, set its start and end.</li>
                 <li>Choose a save location and download.</li>
               </ol>
@@ -174,29 +180,50 @@ export default function App() {
           <div>
             <span className="eyebrow intro-eyebrow">
               <span className="small-rule" />
-              LESS FRICTION. MORE PLAY.
+              {clipPage ? "WATCH. MARK. DOWNLOAD." : "LESS FRICTION. MORE PLAY."}
             </span>
-            <h1>
-              Your media.
-              <br />
-              Ready to{" "}
-              <span className="title-accent">
-                go.
-                <svg viewBox="0 0 92 12" aria-hidden="true">
-                  <path d="M2 9C22 2 67 2 90 6" />
-                </svg>
-              </span>
-            </h1>
-            <p>
-              From a link to your library.
-              <br className="mobile-break" /> Music and videos, made simple.
-            </p>
+            {clipPage ? (
+              <>
+                <h1>
+                  Find the moment.
+                  <br />
+                  Keep the{" "}
+                  <span className="title-accent">
+                    best part.
+                    <svg viewBox="0 0 150 12" aria-hidden="true">
+                      <path d="M2 9C35 2 112 2 148 6" />
+                    </svg>
+                  </span>
+                </h1>
+                <p>Play through a video, mark your cut, and download just that clip.</p>
+              </>
+            ) : (
+              <>
+                <h1>
+                  Your media.
+                  <br />
+                  Ready to{" "}
+                  <span className="title-accent">
+                    go.
+                    <svg viewBox="0 0 92 12" aria-hidden="true">
+                      <path d="M2 9C22 2 67 2 90 6" />
+                    </svg>
+                  </span>
+                </h1>
+                <p>
+                  From a link to your library.
+                  <br className="mobile-break" /> Music and videos, made simple.
+                </p>
+              </>
+            )}
           </div>
-          <div className="intro-stamp" aria-hidden="true">
-            <span>PASTE IT.</span>
-            <Icon name="arrow" size={25} />
-            <span>KEEP IT.</span>
-          </div>
+          {!clipPage && (
+            <div className="intro-stamp" aria-hidden="true">
+              <span>PASTE IT.</span>
+              <Icon name="arrow" size={25} />
+              <span>KEEP IT.</span>
+            </div>
+          )}
         </section>
         {healthError && (
           <div className="service-banner" role="alert">
@@ -241,55 +268,8 @@ export default function App() {
         )}
         <div className="workspace-grid">
           <div className="downloaders-area">
-            <div
-              className="downloader-tabs"
-              role="tablist"
-              aria-label="Download type"
-            >
-              <button
-                id="full-video-tab"
-                type="button"
-                role="tab"
-                aria-selected={mobileDownloader === "full"}
-                aria-controls="full-video-panel"
-                tabIndex={mobileDownloader === "full" ? 0 : -1}
-                onClick={() => setMobileDownloader("full")}
-              >
-                Full Video
-              </button>
-              <button
-                id="clip-tab"
-                type="button"
-                role="tab"
-                aria-selected={mobileDownloader === "clip"}
-                aria-controls="clip-panel"
-                tabIndex={mobileDownloader === "clip" ? 0 : -1}
-                onClick={() => setMobileDownloader("clip")}
-              >
-                Clip
-              </button>
-            </div>
-            <div className="downloaders-grid">
-              <div
-                id="full-video-panel"
-                className={`download-section ${mobileDownloader === "full" ? "mobile-active" : ""}`}
-                role="tabpanel"
-                aria-labelledby="full-video-tab"
-              >
-                <DownloadComposer
-                  ffmpegAvailable={health ? health.tools.ffmpeg : null}
-                  unavailable={Boolean(
-                    healthError || (health && !health.tools.ytDlp),
-                  )}
-                  onQueue={queue}
-                />
-              </div>
-              <div
-                id="clip-panel"
-                className={`download-section ${mobileDownloader === "clip" ? "mobile-active" : ""}`}
-                role="tabpanel"
-                aria-labelledby="clip-tab"
-              >
+            {clipPage ? (
+              <div className="clip-page-editor">
                 <DownloadComposer
                   mode="clip"
                   ffmpegAvailable={health ? health.tools.ffmpeg : null}
@@ -299,7 +279,33 @@ export default function App() {
                   onQueue={queue}
                 />
               </div>
-            </div>
+            ) : (
+              <div className="downloaders-grid">
+                <div className="download-section">
+                  <DownloadComposer
+                    ffmpegAvailable={health ? health.tools.ffmpeg : null}
+                    unavailable={Boolean(
+                      healthError || (health && !health.tools.ytDlp),
+                    )}
+                    onQueue={queue}
+                  />
+                </div>
+                <a className="clip-studio-card panel" href="/clip">
+                  <span className="clip-studio-icon">
+                    <Icon name="video" size={22} />
+                  </span>
+                  <span className="eyebrow">CLIP STUDIO</span>
+                  <strong>Need just one moment?</strong>
+                  <span>
+                    Watch the video, choose the exact start and end, and save
+                    only the section you want.
+                  </span>
+                  <span className="clip-studio-link">
+                    Open Clip Studio <Icon name="arrow" size={15} />
+                  </span>
+                </a>
+              </div>
+            )}
           </div>
           <QueuePanel
             jobs={downloads.jobs}
@@ -314,22 +320,24 @@ export default function App() {
             onSaveThumbnail={downloadThumbnailInBrowser}
           />
         </div>
-        <div className="workflow-note">
-          <span>
-            <Icon name="link" size={15} />
-            Paste a link
-          </span>
-          <i />
-          <span>
-            <Icon name="audio" size={15} />
-            Make it your format
-          </span>
-          <i />
-          <span>
-            <Icon name="download" size={15} />
-            Take it with you
-          </span>
-        </div>
+        {!clipPage && (
+          <div className="workflow-note">
+            <span>
+              <Icon name="link" size={15} />
+              Paste a link
+            </span>
+            <i />
+            <span>
+              <Icon name="audio" size={15} />
+              Make it your format
+            </span>
+            <i />
+            <span>
+              <Icon name="download" size={15} />
+              Take it with you
+            </span>
+          </div>
+        )}
       </main>
       <footer className="app-footer">
         <span>

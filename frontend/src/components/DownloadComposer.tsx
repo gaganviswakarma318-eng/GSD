@@ -17,6 +17,7 @@ import {
   validMediaUrl,
 } from "../utils";
 import { Icon } from "./Icon";
+import { ClipVideoPlayer } from "./ClipVideoPlayer";
 import { MediaPreview } from "./MediaPreview";
 
 interface Props {
@@ -281,6 +282,13 @@ export function DownloadComposer({
         </p>
       )}
       <MediaPreview info={info} loading={loading} />
+      {clipMode && info && (
+        <ClipVideoPlayer
+          info={info}
+          startSeconds={clipStartSeconds}
+          endSeconds={clipEndSeconds}
+        />
+      )}
       {clipMode && (
         <div className="clip-controls" aria-labelledby="clip-range-title">
           <div className="clip-range-heading">

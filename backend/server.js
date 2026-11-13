@@ -8,6 +8,7 @@ const { ApiError } = require("./utils/errors");
 const { probeTools } = require("./utils/processes");
 const { MetadataService } = require("./services/metadata");
 const { DownloadManager } = require("./services/downloadManager");
+const { PreviewManager } = require("./services/previewManager");
 
 async function startServer(options = {}) {
   const config = createConfig(options);
@@ -19,7 +20,10 @@ async function startServer(options = {}) {
   const manager =
     options.manager ||
     new DownloadManager(config, metadata, options.managerDependencies);
+  const previewManager =
+    options.previewManager || new PreviewManager(config, metadata);
   await manager.initialize();
+  await previewManager.initialize();
   const app = express();
   const server = http.createServer(app);
   const sessions = new Map();
@@ -103,6 +107,39 @@ async function startServer(options = {}) {
   );
   app.post("/api/info", async (req, res) =>
     res.json((await metadata.get(req.body?.url)).public),
+  );
+  app.post("/api/previews", async (req, res) =>
+    res.status(202).json(await previewManager.create(req.body?.url, req.sessionId)),
+  );
+  app.get("/api/previews/:id/file", (req, res, next) => {
+    const record = previewManager.beginDelivery(req.params.id, req.sessionId);
+    let settled = false;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      void previewManager
+        .finishDelivery(record)
+        .catch((error) => console.error("GSD preview cleanup:", error.message));
+    };
+    res.once("close", finish);
+    res.once("error", finish);
+    res.sendFile(record.filePath, { dotfiles: "deny" }, (error) => {
+      finish();
+      if (error && !res.headersSent && !res.destroyed)
+        next(
+          new ApiError(
+            "Unable to play the video preview. Try preparing it again.",
+            500,
+            "PREVIEW_DELIVERY_ERROR",
+          ),
+        );
+    });
+  });
+  app.get("/api/previews/:id", (req, res) =>
+    res.json(previewManager.get(req.params.id, req.sessionId)),
+  );
+  app.delete("/api/previews/:id", async (req, res) =>
+    res.json(await previewManager.remove(req.params.id, req.sessionId)),
   );
   app.get("/api/jobs", (req, res) => res.json(manager.list(req.sessionId)));
   app.post("/api/jobs", async (req, res) =>
@@ -227,7 +264,7 @@ async function startServer(options = {}) {
       .json({ error: "API endpoint not found.", code: "NOT_FOUND" }),
   );
   app.use(express.static(config.frontendPath, { index: "index.html" }));
-  app.get("/", (req, res) => {
+  app.get(["/", "/clip"], (req, res) => {
     const index = path.join(config.frontendPath, "index.html");
     if (fs.existsSync(index)) return res.sendFile(index);
     return res
@@ -257,7 +294,7 @@ async function startServer(options = {}) {
       server.listen(config.port, config.host, resolve);
     });
   } catch (error) {
-    await Promise.all([metadata.close(), manager.close()]);
+    await Promise.all([metadata.close(), manager.close(), previewManager.close()]);
     throw error;
   }
   origin = `http://${config.host === "::1" ? "[::1]" : config.host}:${server.address().port}`;
@@ -277,13 +314,26 @@ async function startServer(options = {}) {
       for (const stream of streams) stream.end();
       const stopped = new Promise((resolve) => server.close(resolve));
       server.closeIdleConnections?.();
-      await Promise.all([metadata.close(), manager.close()]);
+      await Promise.all([
+        metadata.close(),
+        manager.close(),
+        previewManager.close(),
+      ]);
       server.closeAllConnections?.();
       await stopped;
     })();
     return closing;
   };
-  return { app, server, url: origin, manager, metadata, close, config };
+  return {
+    app,
+    server,
+    url: origin,
+    manager,
+    metadata,
+    previewManager,
+    close,
+    config,
+  };
 }
 
 if (require.main === module) {
