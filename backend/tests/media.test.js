@@ -4,6 +4,7 @@ const { buildOptions } = require("../services/formats");
 const { buildArgs, parseProgress } = require("../services/downloader");
 const { MetadataService } = require("../services/metadata");
 const {
+  mediaError,
   validateUrl,
   validatePublicUrl,
   privateAddress,
@@ -108,6 +109,29 @@ test("download args use pinned source IDs and cached metadata; only MP3 transcod
   assert.ok(mp3.includes("--extract-audio"));
   assert.ok(mp3.includes("node:C:\\Tools\\node.exe"));
   assert.equal(mp3[mp3.indexOf("--audio-format") + 1], "mp3");
+  const clip = buildArgs(
+    config,
+    available.find((option) => option.quality === "1080p"),
+    "source.json",
+    "temp",
+    { startSeconds: 12.25, endSeconds: 27 },
+  );
+  assert.equal(
+    clip[clip.indexOf("--download-sections") + 1],
+    "*12.25-27",
+  );
+  assert.ok(clip.includes("--force-keyframes-at-cuts"));
+});
+
+test("clip extraction failures explain unsupported sources and missing FFmpeg", () => {
+  assert.match(
+    mediaError("ERROR: This extractor does not support downloading sections"),
+    /does not support clip downloads/,
+  );
+  assert.match(
+    mediaError("ERROR: ffmpeg is not installed"),
+    /require FFmpeg/,
+  );
 });
 
 test("yt-dlp discovers FFmpeg from PATH when configured by command name", () => {

@@ -81,6 +81,18 @@ test("job creation preserves thumbnail preferences and the existing save destina
     url: "https://example.com/media",
     optionId: "mp3",
   });
+  await api.create(
+    "https://example.com/media",
+    "mp4",
+    undefined,
+    undefined,
+    { startSeconds: 12, endSeconds: 27 },
+  );
+  assert.deepEqual(JSON.parse(calls.at(-1).options.body), {
+    url: "https://example.com/media",
+    optionId: "mp4",
+    clipRange: { startSeconds: 12, endSeconds: 27 },
+  });
 });
 
 test("saving an optional thumbnail uses its own encoded route and filename", () => {

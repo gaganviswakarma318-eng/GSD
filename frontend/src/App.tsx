@@ -8,7 +8,7 @@ import { ThemeToggle } from "./components/ThemeToggle";
 import { isDesktop } from "./config";
 import { useDownloads } from "./hooks/useDownloads";
 import { useHealth } from "./hooks/useHealth";
-import type { DownloadJob, SaveDestination, SaveFileHandle, ThumbnailSettings } from "./types";
+import type { ClipRange, DownloadJob, SaveDestination, SaveFileHandle, ThumbnailSettings } from "./types";
 import { errorMessage } from "./utils";
 
 export default function App() {
@@ -18,6 +18,9 @@ export default function App() {
     {},
   );
   const [announcement, setAnnouncement] = useState("");
+  const [mobileDownloader, setMobileDownloader] = useState<"full" | "clip">(
+    "full",
+  );
   const handles = useRef(new Map<string, SaveFileHandle>());
   const ownedJobs = useRef(new Set<string>());
   const deliveredAttempts = useRef(new Set<string>());
@@ -29,8 +32,15 @@ export default function App() {
     optionId: string,
     destination: SaveDestination | null,
     settings: ThumbnailSettings,
+    clipRange?: ClipRange,
   ) {
-    const job = await downloads.create(url, optionId, destination?.token, settings);
+    const job = await downloads.create(
+      url,
+      optionId,
+      destination?.token,
+      settings,
+      clipRange,
+    );
     ownedJobs.current.add(job.id);
     if (destination?.handle) handles.current.set(job.id, destination.handle);
     setAnnouncement(`${job.title} added to the download queue.`);
@@ -141,8 +151,8 @@ export default function App() {
             <div className="help-popover">
               <h2>Get. Save. Done.</h2>
               <ol>
-                <li>Paste a supported public media link.</li>
-                <li>Preview it, then choose Audio or Video and a format.</li>
+                <li>Choose Full Video or Clip, then paste a supported media link.</li>
+                <li>Preview it, choose a format and quality; for a clip, set its start and end.</li>
                 <li>Choose a save location and download.</li>
               </ol>
               <p>
@@ -217,7 +227,7 @@ export default function App() {
               <p>
                 {!health.tools.ytDlp
                   ? "GSD needs yt-dlp to inspect links and download media. Reinstall the desktop app, or follow the README’s media tool setup for development."
-                  : "GSD can use direct source formats. Conversion, audio/video merging and thumbnail embedding are unavailable until FFmpeg is installed. See the README for setup."}
+                  : "GSD can use direct source formats. Clip trimming, conversion, audio/video merging and thumbnail embedding are unavailable until FFmpeg is installed. See the README for setup."}
               </p>
             </div>
             <button
@@ -230,13 +240,67 @@ export default function App() {
           </div>
         )}
         <div className="workspace-grid">
-          <DownloadComposer
-            ffmpegAvailable={Boolean(health?.tools.ffmpeg)}
-            unavailable={Boolean(
-              healthError || (health && !health.tools.ytDlp),
-            )}
-            onQueue={queue}
-          />
+          <div className="downloaders-area">
+            <div
+              className="downloader-tabs"
+              role="tablist"
+              aria-label="Download type"
+            >
+              <button
+                id="full-video-tab"
+                type="button"
+                role="tab"
+                aria-selected={mobileDownloader === "full"}
+                aria-controls="full-video-panel"
+                tabIndex={mobileDownloader === "full" ? 0 : -1}
+                onClick={() => setMobileDownloader("full")}
+              >
+                Full Video
+              </button>
+              <button
+                id="clip-tab"
+                type="button"
+                role="tab"
+                aria-selected={mobileDownloader === "clip"}
+                aria-controls="clip-panel"
+                tabIndex={mobileDownloader === "clip" ? 0 : -1}
+                onClick={() => setMobileDownloader("clip")}
+              >
+                Clip
+              </button>
+            </div>
+            <div className="downloaders-grid">
+              <div
+                id="full-video-panel"
+                className={`download-section ${mobileDownloader === "full" ? "mobile-active" : ""}`}
+                role="tabpanel"
+                aria-labelledby="full-video-tab"
+              >
+                <DownloadComposer
+                  ffmpegAvailable={health ? health.tools.ffmpeg : null}
+                  unavailable={Boolean(
+                    healthError || (health && !health.tools.ytDlp),
+                  )}
+                  onQueue={queue}
+                />
+              </div>
+              <div
+                id="clip-panel"
+                className={`download-section ${mobileDownloader === "clip" ? "mobile-active" : ""}`}
+                role="tabpanel"
+                aria-labelledby="clip-tab"
+              >
+                <DownloadComposer
+                  mode="clip"
+                  ffmpegAvailable={health ? health.tools.ffmpeg : null}
+                  unavailable={Boolean(
+                    healthError || (health && !health.tools.ytDlp),
+                  )}
+                  onQueue={queue}
+                />
+              </div>
+            </div>
+          </div>
           <QueuePanel
             jobs={downloads.jobs}
             loading={downloads.loading}

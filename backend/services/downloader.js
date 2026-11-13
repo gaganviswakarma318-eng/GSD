@@ -17,9 +17,14 @@ function parseProgress(line) {
   } catch { return null; }
 }
 
-function buildArgs(config, option, infoPath, tempDir) {
+function sectionTime(seconds) {
+  return Number(seconds.toFixed(3)).toString();
+}
+
+function buildArgs(config, option, infoPath, tempDir, clipRange) {
   const args = [...commonArgs(config), '--no-simulate', '--newline', '--progress', '--progress-delta', '0.3', '--concurrent-fragments', '3', '--fragment-retries', '3', '--windows-filenames', '--no-overwrites', '--paths', tempDir, '--output', 'media.%(ext)s', '--format', option.selector,
     '--progress-template', 'download:GSD_PROGRESS:{"downloaded_bytes":%(progress.downloaded_bytes|0)s,"total_bytes":%(progress.total_bytes|0)s,"total_bytes_estimate":%(progress.total_bytes_estimate|0)s,"speed":%(progress.speed|0)s,"eta":%(progress.eta|0)s,"format_id":%(info.format_id)j,"status":%(progress.status)j}', '--progress-template', 'postprocess:GSD_PROCESSING:{"postprocessor":%(progress.postprocessor)j,"status":%(progress.status)j}', '--print', 'after_move:GSD_FILE:%(filepath)j', '--load-info-json', infoPath];
+  if (clipRange) args.push('--download-sections', `*${sectionTime(clipRange.startSeconds)}-${sectionTime(clipRange.endSeconds)}`, '--force-keyframes-at-cuts');
   const ffmpeg = config.tools.ffmpeg;
   if (ffmpeg && (/[\\/]/.test(ffmpeg) || /^[A-Za-z]:/.test(ffmpeg))) args.push('--ffmpeg-location', ffmpeg);
   if (option.merged) args.push('--merge-output-format', option.format);
@@ -27,19 +32,25 @@ function buildArgs(config, option, infoPath, tempDir) {
   return args;
 }
 
-async function runDownload({ config, raw, option, tempDir, signal, onProgress, embedThumbnail = true, thumbnailSidecar = false, processRunner = runProcess }) {
+async function runDownload({ config, raw, option, clipRange, tempDir, signal, onProgress, embedThumbnail = true, thumbnailSidecar = false, processRunner = runProcess }) {
   const infoPath = path.join(tempDir, 'source.info.json');
   await fs.writeFile(infoPath, JSON.stringify(raw), { mode: 0o600 });
   let filePath = null;
+  const args = buildArgs(config, option, infoPath, tempDir, clipRange);
+  const duration = numeric(raw.duration);
+  const sizeRatio = clipRange && duration
+    ? Math.min(1, (clipRange.endSeconds - clipRange.startSeconds) / duration)
+    : 1;
   // Account for every selected source before the first progress event. A video
   // stream finishing does not mean its companion audio has been downloaded.
   const formats = Array.isArray(raw.formats) ? raw.formats : [raw];
   const streams = new Map(option.selector.split('+').map(id => {
     const format = formats.find(value => String(value.format_id) === id);
-    const totalBytes = numeric(format?.filesize) || numeric(format?.filesize_approx) || (option.merged ? null : numeric(option.estimatedSize)) || null;
+    const sourceBytes = numeric(format?.filesize) || numeric(format?.filesize_approx) || (option.merged ? null : numeric(option.estimatedSize)) || null;
+    const totalBytes = sourceBytes ? Math.max(1, Math.round(sourceBytes * sizeRatio)) : null;
     return [id, { downloadedBytes: 0, totalBytes }];
   }));
-  const result = await processRunner(config.tools.ytDlp, buildArgs(config, option, infoPath, tempDir), {
+  const result = await processRunner(config.tools.ytDlp, args, {
     signal,
     cwd: tempDir,
     captureStdout: false,
@@ -64,7 +75,7 @@ async function runDownload({ config, raw, option, tempDir, signal, onProgress, e
         if (line.startsWith('GSD_PROCESSING:')) {
           try { postprocessor = JSON.parse(line.slice('GSD_PROCESSING:'.length)).postprocessor; } catch {}
         }
-        const stage = postprocessor === 'Merger' ? 'merging' : postprocessor === 'ExtractAudio' ? 'converting_audio' : null;
+        const stage = postprocessor === 'Merger' ? 'merging' : postprocessor === 'ExtractAudio' ? 'converting_audio' : clipRange && /^FFmpegVideo/.test(postprocessor || '') ? 'trimming' : null;
         onProgress({ status: 'processing', ...(stage ? { stage } : {}), speedBytes: null, etaSeconds: null });
       }
       else if (line.startsWith('GSD_FILE:')) { try { filePath = JSON.parse(line.slice(9)); } catch {} }

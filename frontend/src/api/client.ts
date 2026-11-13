@@ -1,5 +1,5 @@
 import { API_BASE } from "../config";
-import type { DownloadJob, Health, MediaInfo, SaveFileHandle, ThumbnailSettings } from "../types";
+import type { ClipRange, DownloadJob, Health, MediaInfo, SaveFileHandle, ThumbnailSettings } from "../types";
 
 let sessionReady: Promise<void> | null = null;
 function ensureSession(): Promise<void> {
@@ -51,8 +51,8 @@ export const api = {
   info: (url: string, signal: AbortSignal) =>
     request<MediaInfo>("/info", { ...post({ url }), signal }),
   jobs: () => request<DownloadJob[]>("/jobs"),
-  create: (url: string, optionId: string, saveToken?: string, settings?: ThumbnailSettings) =>
-    request<DownloadJob>("/jobs", post({ url, optionId, saveToken, ...settings })),
+  create: (url: string, optionId: string, saveToken?: string, settings?: ThumbnailSettings, clipRange?: ClipRange) =>
+    request<DownloadJob>("/jobs", post({ url, optionId, saveToken, ...settings, ...(clipRange ? { clipRange } : {}) })),
   cancel: (id: string) =>
     request<DownloadJob>(`/jobs/${encodeURIComponent(id)}/cancel`, post()),
   retry: (id: string) =>

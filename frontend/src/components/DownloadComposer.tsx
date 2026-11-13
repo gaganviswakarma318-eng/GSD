@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { isDesktop } from "../config";
 import { useMediaInfo } from "../hooks/useMediaInfo";
 import type {
+  ClipRange,
   DownloadJob,
   MediaType,
   SaveDestination,
@@ -10,6 +11,8 @@ import type {
 import {
   errorMessage,
   formatBytes,
+  formatTimecode,
+  parseTimecode,
   suggestedFilename,
   validMediaUrl,
 } from "../utils";
@@ -18,17 +21,20 @@ import { MediaPreview } from "./MediaPreview";
 
 interface Props {
   unavailable: boolean;
-  ffmpegAvailable: boolean;
+  ffmpegAvailable: boolean | null;
+  mode?: "full" | "clip";
   onQueue(
     url: string,
     optionId: string,
     destination: SaveDestination | null,
     settings: ThumbnailSettings,
+    clipRange?: ClipRange,
   ): Promise<DownloadJob>;
 }
 export function DownloadComposer({
   unavailable,
   ffmpegAvailable,
+  mode = "full",
   onQueue,
 }: Props) {
   const [url, setUrl] = useState("");
@@ -41,26 +47,57 @@ export function DownloadComposer({
   const [notice, setNotice] = useState("");
   const [embedThumbnail, setEmbedThumbnail] = useState(true);
   const [thumbnailSidecar, setThumbnailSidecar] = useState(false);
+  const [clipStart, setClipStart] = useState("00:00");
+  const [clipEnd, setClipEnd] = useState("00:30");
   const input = useRef<HTMLInputElement>(null);
   const { info, loading, error, lookup, clear } = useMediaInfo();
-  const options = info?.options.filter((item) => item.type === type) || [];
+  const clipMode = mode === "clip";
+  const idPrefix = clipMode ? "clip-" : "";
+  const options =
+    info?.options.filter((item) => item.type === (clipMode ? "video" : type)) ||
+    [];
   const selected = options.find((item) => item.id === optionId) || options[0];
   const formats = [...new Set(options.map((item) => item.format))];
   const qualities = options.filter((item) => item.format === selected?.format);
   const thumbnailSupported = Boolean(selected?.thumbnailSupport?.supported);
-  const canEmbedThumbnail = thumbnailSupported && ffmpegAvailable;
+  const canEmbedThumbnail = thumbnailSupported && ffmpegAvailable === true;
+  const clipStartSeconds = parseTimecode(clipStart);
+  const clipEndSeconds = parseTimecode(clipEnd);
+  const clipRangeError = !clipMode || !info
+    ? ""
+    : !Number.isFinite(info.duration) || !info.duration || info.duration < 1
+      ? "This source does not report a usable duration, so a clip cannot be validated."
+      : clipStartSeconds === null
+        ? "Enter a start time as MM:SS or HH:MM:SS."
+        : clipEndSeconds === null
+          ? "Enter an end time as MM:SS or HH:MM:SS."
+          : clipStartSeconds >= clipEndSeconds
+            ? "The end time must be later than the start time."
+            : clipEndSeconds > info.duration
+              ? "The clip end must be within the video duration."
+              : "";
+  const clipRange =
+    clipMode && !clipRangeError && clipStartSeconds !== null && clipEndSeconds !== null
+      ? { startSeconds: clipStartSeconds, endSeconds: clipEndSeconds }
+      : undefined;
+  const clipSliderMax = Math.max(1, Math.floor(info?.duration || 1));
 
   useEffect(() => {
     if (!info) return;
     const first =
-      info.options.find((item) => item.type === type) || info.options[0];
+      info.options.find((item) => item.type === (clipMode ? "video" : type)) ||
+      (!clipMode ? info.options[0] : undefined);
     if (first) {
       setType(first.type);
       setOptionId(first.id);
     }
+    if (clipMode && info.duration && Number.isFinite(info.duration)) {
+      setClipStart(formatTimecode(0));
+      setClipEnd(formatTimecode(Math.max(1, Math.min(30, Math.floor(info.duration)))));
+    }
     // Reset the selection when a new media source arrives, not while choosing its quality.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [info]);
+  }, [info, clipMode]);
 
   function changeOption(id: string) {
     setOptionId(id);
@@ -124,6 +161,7 @@ export function DownloadComposer({
   }
   async function start() {
     if (!info || !selected || busy) return;
+    if (clipMode && (!clipRange || ffmpegAvailable !== true)) return;
     setBusy(true);
     setActionError("");
     setNotice("");
@@ -138,7 +176,7 @@ export function DownloadComposer({
       await onQueue(info.url, selected.id, chosen, {
         embedThumbnail: canEmbedThumbnail && embedThumbnail,
         thumbnailSidecar: !thumbnailSupported && thumbnailSidecar,
-      });
+      }, clipRange);
       setNotice(
         "Added to your downloads. You can add another link while this one runs.",
       );
@@ -151,10 +189,17 @@ export function DownloadComposer({
   }
   const canPick = isDesktop || Boolean(window.showSaveFilePicker);
   return (
-    <section className="composer panel" aria-labelledby="new-download-title">
+    <section
+      className={`composer panel ${clipMode ? "clip-composer" : ""}`}
+      aria-labelledby={`${idPrefix}download-title`}
+    >
       <div className="section-heading">
-        <h2 id="new-download-title">New download</h2>
-        <span className="step-hint">A link is all you need</span>
+        <h2 id={`${idPrefix}download-title`}>
+          {clipMode ? "Clip Downloader" : "Full Video Downloader"}
+        </h2>
+        <span className="step-hint">
+          {clipMode ? "Choose a section to keep" : "Download the full media"}
+        </span>
       </div>
       <form
         onSubmit={(event) => {
@@ -164,16 +209,18 @@ export function DownloadComposer({
           void lookup(url);
         }}
       >
-        <label className="field-label" htmlFor="media-url">
+        <label className="field-label" htmlFor={`${idPrefix}media-url`}>
           Media link
         </label>
         <div className="link-field">
           <Icon name="link" size={20} />
           <input
             ref={input}
-            id="media-url"
+            id={`${idPrefix}media-url`}
             type="url"
-            placeholder="Paste a video or music link"
+            placeholder={
+              clipMode ? "Paste a video link to clip" : "Paste a video or music link"
+            }
             value={url}
             onChange={(event) => changeUrl(event.target.value)}
             onPaste={(event) => {
@@ -185,7 +232,7 @@ export function DownloadComposer({
             }}
             autoComplete="off"
             spellCheck={false}
-            aria-describedby="link-hint"
+            aria-describedby={`${idPrefix}link-hint`}
             aria-invalid={Boolean(error)}
             required
           />
@@ -213,7 +260,7 @@ export function DownloadComposer({
           )}
         </div>
         <div className="link-under">
-          <p id="link-hint">Public media links supported by yt-dlp.</p>
+          <p id={`${idPrefix}link-hint`}>Public media links supported by yt-dlp.</p>
           <button
             className="text-button find-button"
             type="submit"
@@ -234,45 +281,154 @@ export function DownloadComposer({
         </p>
       )}
       <MediaPreview info={info} loading={loading} />
-      <div className={`download-options ${!info ? "options-unready" : ""}`}>
-        <fieldset className="type-fieldset" disabled={!info || loading}>
-          <legend className="field-label">Download as</legend>
-          <div className="type-switch">
-            {(["video", "audio"] as const).map((value) => (
-              <label
-                className={`type-choice ${type === value ? "selected" : ""}`}
-                key={value}
-              >
+      {clipMode && (
+        <div className="clip-controls" aria-labelledby="clip-range-title">
+          <div className="clip-range-heading">
+            <h3 id="clip-range-title">Clip range</h3>
+            <span>
+              {info?.duration != null
+                ? `Video length ${formatTimecode(Math.floor(info.duration))}`
+                : "Find a video to choose a range"}
+            </span>
+          </div>
+          {info && info.duration != null && (
+            <div className="clip-time-fields">
+              <div>
+                <label className="field-label" htmlFor="clip-start-time">
+                  Start time
+                </label>
                 <input
-                  type="radio"
-                  name="media-type"
-                  value={value}
-                  checked={type === value}
-                  disabled={
-                    !info?.options.some((option) => option.type === value)
-                  }
-                  onChange={() => {
-                    setType(value);
-                    changeOption(
-                      info?.options.find((option) => option.type === value)
-                        ?.id || "",
-                    );
+                  id="clip-start-time"
+                  className="clip-time-input"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="MM:SS"
+                  value={clipStart}
+                  aria-invalid={Boolean(clipRangeError)}
+                  aria-describedby="clip-range-help"
+                  onChange={(event) => {
+                    setClipStart(event.target.value);
+                    setActionError("");
                   }}
                 />
-                <Icon name={value} size={18} />
-                <span>{value === "video" ? "Video" : "Audio"}</span>
-                {type === value && <Icon name="check" size={14} />}
+              </div>
+              <div>
+                <label className="field-label" htmlFor="clip-end-time">
+                  End time
+                </label>
+                <input
+                  id="clip-end-time"
+                  className="clip-time-input"
+                  type="text"
+                  inputMode="numeric"
+                  placeholder="MM:SS"
+                  value={clipEnd}
+                  aria-invalid={Boolean(clipRangeError)}
+                  aria-describedby="clip-range-help"
+                  onChange={(event) => {
+                    setClipEnd(event.target.value);
+                    setActionError("");
+                  }}
+                />
+              </div>
+            </div>
+          )}
+          {info && info.duration != null && (
+            <div className="clip-slider-fields">
+              <label>
+                <span>Start point · {formatTimecode(clipStartSeconds ?? 0)}</span>
+                <input
+                  type="range"
+                  min="0"
+                  max={clipSliderMax}
+                  step="1"
+                  value={Math.min(clipSliderMax, clipStartSeconds ?? 0)}
+                  aria-label="Clip start point"
+                  onChange={(event) =>
+                    setClipStart(formatTimecode(Number(event.target.value)))
+                  }
+                />
               </label>
-            ))}
-          </div>
-        </fieldset>
+              <label>
+                <span>
+                  End point · {formatTimecode(clipEndSeconds ?? clipSliderMax)}
+                </span>
+                <input
+                  type="range"
+                  min="0"
+                  max={clipSliderMax}
+                  step="1"
+                  value={Math.min(
+                    clipSliderMax,
+                    clipEndSeconds ?? clipSliderMax,
+                  )}
+                  aria-label="Clip end point"
+                  onChange={(event) =>
+                    setClipEnd(formatTimecode(Number(event.target.value)))
+                  }
+                />
+              </label>
+            </div>
+          )}
+          <p
+            className={
+              clipRangeError ? "inline-error clip-range-error" : "format-note"
+            }
+            id="clip-range-help"
+            role={clipRangeError ? "alert" : undefined}
+          >
+            {clipRangeError ||
+              "Use MM:SS or HH:MM:SS. Cut points are selected to the nearest second."}
+          </p>
+          {ffmpegAvailable === false && (
+            <p className="inline-error clip-range-error" role="alert">
+              Clip downloads require FFmpeg. Install FFmpeg or configure
+              GSD_FFMPEG_PATH.
+            </p>
+          )}
+        </div>
+      )}
+      <div className={`download-options ${!info ? "options-unready" : ""}`}>
+        {!clipMode && (
+          <fieldset className="type-fieldset" disabled={!info || loading}>
+            <legend className="field-label">Download as</legend>
+            <div className="type-switch">
+              {(["video", "audio"] as const).map((value) => (
+                <label
+                  className={`type-choice ${type === value ? "selected" : ""}`}
+                  key={value}
+                >
+                  <input
+                    type="radio"
+                    name={`${idPrefix}media-type`}
+                    value={value}
+                    checked={type === value}
+                    disabled={
+                      !info?.options.some((option) => option.type === value)
+                    }
+                    onChange={() => {
+                      setType(value);
+                      changeOption(
+                        info?.options.find((option) => option.type === value)
+                          ?.id || "",
+                      );
+                    }}
+                  />
+                  <Icon name={value} size={18} />
+                  <span>{value === "video" ? "Video" : "Audio"}</span>
+                  {type === value && <Icon name="check" size={14} />}
+                </label>
+              ))}
+            </div>
+          </fieldset>
+        )}
         <div className="select-grid">
           <div>
-            <label className="field-label" htmlFor="media-format">
+            <label className="field-label" htmlFor={`${idPrefix}media-format`}>
               Format
             </label>
             <select
-              id="media-format"
+              id={`${idPrefix}media-format`}
               value={selected?.format || ""}
               disabled={!options.length || loading}
               onChange={(event) =>
@@ -291,11 +447,11 @@ export function DownloadComposer({
             </select>
           </div>
           <div>
-            <label className="field-label" htmlFor="media-quality">
+            <label className="field-label" htmlFor={`${idPrefix}media-quality`}>
               Quality
             </label>
             <select
-              id="media-quality"
+              id={`${idPrefix}media-quality`}
               value={selected?.id || ""}
               disabled={!qualities.length || loading}
               onChange={(event) => changeOption(event.target.value)}
@@ -333,18 +489,18 @@ export function DownloadComposer({
               type="checkbox"
               checked={canEmbedThumbnail && embedThumbnail}
               disabled={!info || loading || !canEmbedThumbnail}
-              aria-describedby="thumbnail-support"
+              aria-describedby={`${idPrefix}thumbnail-support`}
               onChange={(event) => setEmbedThumbnail(event.target.checked)}
             />
             <span>Embed Thumbnail</span>
           </label>
-          <p className="format-note" id="thumbnail-support">
+          <p className="format-note" id={`${idPrefix}thumbnail-support`}>
             {!selected
               ? "Choose a format to check embedded artwork support."
               : !thumbnailSupported
                 ? selected.thumbnailSupport?.reason ||
                   `${selected.format.toUpperCase()} does not support embedded artwork.`
-                : !ffmpegAvailable
+                : ffmpegAvailable === false
                   ? `${selected.format.toUpperCase()} supports embedded artwork. FFmpeg is required to embed it.`
                   : `${selected.thumbnailSupport.reason} Artwork visibility depends on your media player and device.`}
           </p>
@@ -401,7 +557,14 @@ export function DownloadComposer({
         <button
           className="primary-button download-button"
           type="button"
-          disabled={!info || !selected || loading || busy || unavailable}
+          disabled={
+            !info ||
+            !selected ||
+            loading ||
+            busy ||
+            unavailable ||
+            (clipMode && (ffmpegAvailable !== true || !clipRange))
+          }
           onClick={() => void start()}
         >
           {busy ? (
@@ -409,7 +572,13 @@ export function DownloadComposer({
           ) : (
             <Icon name="download" size={20} />
           )}
-          <span>{busy ? "Adding to queue…" : "Download"}</span>
+          <span>
+            {busy
+              ? "Adding to queue…"
+              : clipMode
+                ? "Download clip"
+                : "Download"}
+          </span>
           {selected && (
             <span className="download-format">
               {selected.format.toUpperCase()}

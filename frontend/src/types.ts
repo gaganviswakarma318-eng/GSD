@@ -17,6 +17,10 @@ export interface ThumbnailSettings {
   embedThumbnail?: boolean;
   thumbnailSidecar?: boolean;
 }
+export interface ClipRange {
+  startSeconds: number;
+  endSeconds: number;
+}
 export interface MediaInfo {
   url: string;
   title: string;
@@ -62,6 +66,7 @@ export interface DownloadJob {
   sidecarFilename?: string | null;
   sidecarSavedPath?: string;
   sidecarDelivered?: boolean;
+  clipRange?: ClipRange | null;
 }
 export interface Health {
   tools: { ytDlp: boolean; ffmpeg: boolean };

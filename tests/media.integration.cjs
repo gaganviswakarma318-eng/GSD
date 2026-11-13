@@ -11,7 +11,10 @@ const { startServer } = require('../backend/server');
 const run = promisify(execFile);
 const root = path.resolve(__dirname, '..');
 const work = path.join(root, 'work', 'media-integration');
-const tools = Object.fromEntries([['ytDlp', 'yt-dlp'], ['ffmpeg', 'ffmpeg'], ['ffprobe', 'ffprobe'], ['node', 'node']].map(([key, name]) => [key, path.join(root, 'backend', 'binaries', `${name}.exe`)]));
+const bundledTool = name => path.join(root, 'backend', 'binaries', `${name}.exe`);
+const tools = process.platform === 'win32'
+  ? { ytDlp: bundledTool('yt-dlp'), ffmpeg: bundledTool('ffmpeg'), ffprobe: bundledTool('ffprobe'), node: bundledTool('node') }
+  : { ytDlp: 'yt-dlp', ffmpeg: 'ffmpeg', ffprobe: 'ffprobe', node: process.execPath };
 const delay = ms => new Promise(resolve => setTimeout(resolve, ms));
 const sha = value => crypto.createHash('sha256').update(value).digest('hex');
 const ffmpeg = args => run(tools.ffmpeg, ['-hide_banner', '-loglevel', 'error', '-y', ...args], { windowsHide: true, maxBuffer: 4 * 1024 * 1024 });
@@ -150,6 +153,20 @@ async function main() {
     const audioOption = info.options.find(option => option.type === 'audio' && option.format === 'mp3');
     assert.ok(videoOption, 'actual MP4 source option');
     assert.ok(audioOption, 'MP3 conversion option when FFprobe finds audio');
+    const clipRange = { startSeconds: 1, endSeconds: 2 };
+    const clipJob = await json('/api/jobs', { url: mediaUrl, optionId: videoOption.id, clipRange, embedThumbnail: false });
+    assert.deepEqual(clipJob.clipRange, clipRange, 'queued clip retains its selected range');
+    const finishedClip = await finish(clipJob.id);
+    assert.deepEqual(finishedClip.clipRange, clipRange, 'completed clip keeps its range in job details');
+    const clipResponse = await request(`/api/jobs/${clipJob.id}/file`, undefined, { 'X-GSD-Delivery-Ack': 'manual' });
+    assert.ok(clipResponse.ok, 'clip file is delivered by the shared job route');
+    const clipPath = path.join(work, 'verified-clip.mp4');
+    await fs.writeFile(clipPath, Buffer.from(await clipResponse.arrayBuffer()));
+    const clipInfo = await probe(clipPath);
+    assert.ok(Math.abs(Number(clipInfo.format.duration) - 1) < 0.35, 'clip duration matches the selected one-second interval');
+    assert.ok(clipInfo.streams.some(stream => stream.codec_type === 'video'), 'clip contains video');
+    assert.ok(clipInfo.streams.some(stream => stream.codec_type === 'audio'), 'clip retains audio');
+    await json(`/api/jobs/${clipJob.id}/delivered`, {});
     const [video, audio] = await Promise.all([
       json('/api/jobs', { url: mediaUrl, optionId: videoOption.id }),
       json('/api/jobs', { url: mediaUrl, optionId: audioOption.id }),
@@ -355,7 +372,7 @@ async function main() {
     assert.equal(backend.manager.active.has(cancellation.id), false, 'cancellation waits for thumbnail process termination');
     assert.equal(backend.manager.getRecord(cancellation.id).tempDir, null, 'processing cancellation cleans media and thumbnail artifacts');
 
-    const summary = { ok: true, date: new Date().toISOString(), checks: ['real yt-dlp metadata', 'FFprobe stream enrichment', 'concurrent MP4 and MP3 jobs', 'SSE completion', 'MP4 byte-for-byte source preservation', 'browser manual save acknowledgment', 'MP3 codec verified by FFprobe', 'two concurrent native directory saves with collision avoidance', 'existing destination preserved', 'session ownership', 'cross-origin rejection', 'real bounded FIFO queue', 'queued cancellation', 'active Windows yt-dlp process cancellation and cleanup', 'same-ID retry with refreshed metadata and file delivery', 'one owner-wide SSE stream through retry', 'real HTML5 thumbnail extraction reused by downloads', 'native MP3 ID3, M4A/MP4 attached covers and MKV cover attachments', 'MP3 conversion plus artwork preserves the original conversion audio packet hash', 'all original audio/video packet hashes, duration and title/artist/album/comment preserved', 'highest resolution WebP artwork converted without aspect-ratio loss', 'thumbnail/embedding/finalization stages precede completion', 'temporary artwork cleanup', 'disabled artwork issues no image request', 'missing and corrupt artwork preserve media with nonfatal warnings', 'WebM limitation without container conversion', 'optional browser sidecar survives main delivery and enforces ownership', 'native sidecar copied beside media with matching stem', 'real thumbnail-processing cancellation and cleanup'], tools: health.tools, formats: info.options, artwork: embedded, progressEvents: events.length, queueEvents: queueEvents.length, processingEvents: processingEvents.length };
+    const summary = { ok: true, date: new Date().toISOString(), checks: ['real yt-dlp metadata', 'FFprobe stream enrichment', 'yt-dlp/FFmpeg clip extraction with the requested duration', 'clip range retained in queued and completed jobs', 'clip file delivered through the shared job route', 'concurrent MP4 and MP3 jobs', 'SSE completion', 'MP4 byte-for-byte source preservation', 'browser manual save acknowledgment', 'MP3 codec verified by FFprobe', 'two concurrent native directory saves with collision avoidance', 'existing destination preserved', 'session ownership', 'cross-origin rejection', 'real bounded FIFO queue', 'queued cancellation', 'active Windows yt-dlp process cancellation and cleanup', 'same-ID retry with refreshed metadata and file delivery', 'one owner-wide SSE stream through retry', 'real HTML5 thumbnail extraction reused by downloads', 'native MP3 ID3, M4A/MP4 attached covers and MKV cover attachments', 'MP3 conversion plus artwork preserves the original conversion audio packet hash', 'all original audio/video packet hashes, duration and title/artist/album/comment preserved', 'highest resolution WebP artwork converted without aspect-ratio loss', 'thumbnail/embedding/finalization stages precede completion', 'temporary artwork cleanup', 'disabled artwork issues no image request', 'missing and corrupt artwork preserve media with nonfatal warnings', 'WebM limitation without container conversion', 'optional browser sidecar survives main delivery and enforces ownership', 'native sidecar copied beside media with matching stem', 'real thumbnail-processing cancellation and cleanup'], tools: health.tools, formats: info.options, artwork: embedded, progressEvents: events.length, queueEvents: queueEvents.length, processingEvents: processingEvents.length };
     await fs.writeFile(path.join(work, 'result.json'), JSON.stringify(summary, null, 2));
     console.log(JSON.stringify(summary, null, 2));
   } finally {

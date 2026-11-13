@@ -22,6 +22,23 @@ function safeFilename(title, format, id) {
   return `${name} [${id.slice(0, 8)}].${format}`;
 }
 
+function validateClipRange(clipRange, duration) {
+  if (
+    !clipRange ||
+    typeof clipRange !== 'object' ||
+    !Number.isFinite(clipRange.startSeconds) ||
+    !Number.isFinite(clipRange.endSeconds) ||
+    clipRange.startSeconds < 0 ||
+    clipRange.endSeconds <= clipRange.startSeconds
+  )
+    throw new ApiError('Enter a valid clip start and end time.', 400, 'INVALID_CLIP_RANGE');
+  if (!Number.isFinite(duration) || duration <= 0)
+    throw new ApiError('This source does not report a video duration, so GSD cannot validate a clip range.', 422, 'INVALID_CLIP_RANGE');
+  if (clipRange.endSeconds > duration)
+    throw new ApiError('The clip end time must be within the video duration.', 422, 'INVALID_CLIP_RANGE');
+  return { startSeconds: clipRange.startSeconds, endSeconds: clipRange.endSeconds };
+}
+
 class DownloadManager {
   constructor(config, metadata, { runner = runDownload, now = Date.now } = {}) {
     this.config = config;
@@ -86,12 +103,18 @@ class DownloadManager {
     if (this.queue.length >= this.config.maxPending || this.jobs.size >= 500) throw new ApiError('The download queue is full. Wait for a download to finish before adding another.', 429, 'QUEUE_FULL');
   }
 
-  async create({ url, optionId, saveToken, embedThumbnail = true, thumbnailSidecar = false }, owner) {
+  async create({ url, optionId, saveToken, embedThumbnail = true, thumbnailSidecar = false, clipRange }, owner) {
     if (typeof embedThumbnail !== 'boolean' || typeof thumbnailSidecar !== 'boolean') throw new ApiError('Thumbnail settings must be true or false.', 400, 'INVALID_OPTIONS');
     this.checkCapacity();
     const info = await this.metadata.get(url);
     const option = info.options.find(value => value.id === optionId);
     if (!option) throw new ApiError('This format is no longer available. Analyze the link again and choose a current quality.', 422, 'INVALID_OPTION');
+    let selectedClip = null;
+    if (clipRange !== undefined) {
+      if (option.type !== 'video') throw new ApiError('Clip downloads require a video format.', 400, 'INVALID_CLIP_RANGE');
+      if (this.metadata.availability?.ffmpeg === false) throw new ApiError('Clip downloads require FFmpeg. Install FFmpeg or configure GSD_FFMPEG_PATH.', 503, 'MISSING_TOOL');
+      selectedClip = validateClipRange(clipRange, info.public.duration);
+    }
     let destination = null;
     if (saveToken !== undefined && saveToken !== null) {
       destination = await this.config.resolveDestination?.(saveToken);
@@ -101,7 +124,7 @@ class DownloadManager {
     }
     this.checkCapacity();
     const time = this.now();
-    const record = { id: crypto.randomUUID(), owner, url: info.public.url, title: info.public.title, thumbnail: info.public.thumbnail, type: option.type, format: option.format, quality: option.quality, status: 'queued', progress: 0, downloadedBytes: 0, totalBytes: option.estimatedSize || null, speedBytes: null, etaSeconds: null, queuePosition: null, attempt: 1, error: null, filename: null, createdAt: time, updatedAt: time, raw: info.raw, option, destination, filePath: null, tempDir: null, controller: null, promise: null, transfers: 0 };
+    const record = { id: crypto.randomUUID(), owner, url: info.public.url, title: info.public.title, thumbnail: info.public.thumbnail, type: option.type, format: option.format, quality: option.quality, status: 'queued', progress: 0, downloadedBytes: 0, totalBytes: option.estimatedSize || null, speedBytes: null, etaSeconds: null, queuePosition: null, attempt: 1, error: null, filename: null, createdAt: time, updatedAt: time, raw: info.raw, option, clipRange: selectedClip, destination, filePath: null, tempDir: null, controller: null, promise: null, transfers: 0 };
     Object.assign(record, { embedThumbnail, thumbnailSidecar, stage: null, warnings: [], thumbnailEmbedded: false, sidecarPath: null, sidecarFilename: null, sidecarDelivered: false, mediaDelivered: false });
     this.jobs.set(record.id, record);
     this.queue.push(record.id);
@@ -143,11 +166,12 @@ class DownloadManager {
         const info = await withAbort(this.metadata.get(record.url, { refresh: true }), signal);
         const option = info.options.find(value => value.id === record.option.id);
         if (!option) throw new Error('The selected quality has changed. Analyze the link again and choose an available format.');
+        if (record.clipRange) validateClipRange(record.clipRange, info.public.duration);
         record.raw = info.raw;
         record.option = option;
       }
       if (signal.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
-      const output = await this.runner({ config: this.config, raw: record.raw, option: record.option, tempDir: record.tempDir, signal, embedThumbnail: record.embedThumbnail, thumbnailSidecar: record.thumbnailSidecar, onProgress: patch => {
+      const output = await this.runner({ config: this.config, raw: record.raw, option: record.option, clipRange: record.clipRange, tempDir: record.tempDir, signal, embedThumbnail: record.embedThumbnail, thumbnailSidecar: record.thumbnailSidecar, onProgress: patch => {
         if (!signal.aborted) this.update(record, patch);
       } });
       if (signal.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
@@ -292,4 +316,4 @@ class DownloadManager {
   }
 }
 
-module.exports = { DownloadManager, safeFilename, ACTIVE };
+module.exports = { DownloadManager, safeFilename, validateClipRange, ACTIVE };

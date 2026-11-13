@@ -35,8 +35,8 @@ Use the generated `GSD-Setup-2.0.0-x64.exe` installer in `release/`. It includes
 
 1. Run the installer and choose an installation folder.
 2. Launch **GSD** from the Start menu or desktop shortcut.
-3. Paste a supported single-media URL and select **Find media**.
-4. Choose Audio or Video, an available format and source quality.
+3. Choose **Full Video** or **Clip**, paste a supported single-media URL and select **Find media**.
+4. Choose an available format and source quality. For a clip, set its start and end time.
 5. Choose a save folder with the native picker and start the download.
 
 The build is unsigned. Windows may display a publisher/SmartScreen prompt. For signed distribution, enable `win.signExecutable` in `electron-builder.yml` and configure a code-signing certificate. Windows x64 is the packaged target.
@@ -131,6 +131,10 @@ Active and queued jobs have no idle expiration. Finished browser files remain av
 
 Pause/resume is intentionally unavailable because suspending yt-dlp/FFmpeg with Unix process signals is unreliable on Windows. Cancel and retry are supported.
 
+## Clip downloads
+
+The **Clip Downloader** uses the metadata duration to validate the selected start and end. Enter times as `MM:SS` or `HH:MM:SS`, or adjust the start/end sliders, then choose an available video format and quality. Clip jobs use the same queue, progress, save-location, cancel, retry and delivery behavior as full downloads. FFmpeg is required; some supported media sources may not support section downloads. GSD asks yt-dlp/FFmpeg to force keyframes at the cut points, which can re-encode the clip and take longer than downloading the full source format.
+
 ## Automatic cover artwork
 
 **Embed Thumbnail** is on by default for supported formats. GSD reuses the extracted media information, downloads the best available thumbnail with yt-dlp, and embeds it after merging or audio conversion has finished. JPEG/PNG artwork keeps its dimensions; other supported image types are converted without resizing. The artwork pass copies the original audio/video streams and preserves existing metadata. MP3 conversion, when selected, still uses the existing audio conversion settings.
@@ -169,7 +173,7 @@ npm run build:win
 npm run smoke:desktop -- --capture
 ```
 
-`test:media` runs the real bundled yt-dlp, FFmpeg and FFprobe against generated local media. Its private-URL allowance is scoped to the in-process test server; normal GSD rejects local network media URLs. It verifies concurrent MP4/MP3 downloads, source preservation, browser delivery acknowledgments, queueing, cancellation, retry delivery, directory collision avoidance, session ownership and SSE updates. Unit tests use a virtual clock for long-running sessions and expiry; they do not wait for days.
+`test:media` runs yt-dlp, FFmpeg and FFprobe against generated local media. Its private-URL allowance is scoped to the in-process test server; normal GSD rejects local network media URLs. It verifies clip extraction and duration, shared file delivery, concurrent MP4/MP3 downloads, source preservation, browser delivery acknowledgments, queueing, cancellation, retry delivery, directory collision avoidance, session ownership and SSE updates. Unit tests use a virtual clock for long-running sessions and expiry; they do not wait for days.
 
 `smoke:desktop` exercises the packaged app; use `node scripts/smoke-desktop.cjs --dev --capture` to test the development Electron entry. It checks bundled tool startup, an available localhost port, backend readiness, secure preload bridge, rendered interface and clean shutdown. Screenshots and JSON/log reports are written to ignored `work/` folders.
 

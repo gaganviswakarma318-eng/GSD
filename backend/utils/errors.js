@@ -16,6 +16,10 @@ function mediaError(stderr) {
     .replace(/^.*?ERROR:\s*/, "")
     .replace(/https?:\/\/\S+/g, "[source]")
     .slice(0, 400);
+  if (/download sections?.*(not supported|unsupported)|section.*not supported|does not support.*sections?/i.test(text))
+    return "This source does not support clip downloads. Try a different supported video link.";
+  if (/ffmpeg.*(not found|not installed|not available)/i.test(text))
+    return "Clip downloads require FFmpeg. Install FFmpeg or configure GSD_FFMPEG_PATH.";
   if (/unsupported url/i.test(text))
     return "This link is not supported by yt-dlp. Paste a direct media page link from a supported site.";
   if (

@@ -22,6 +22,7 @@ const info = {
     url: "https://example.com/video",
     title: "Shared title",
     thumbnail: "",
+    duration: 12,
   },
   raw: { title: "Shared title" },
   options: [option],
@@ -40,6 +41,7 @@ async function fixture(t, options = {}) {
   const calls = [];
   let clock = 1;
   const metadata = {
+    availability: { ffmpeg: true },
     requests: [],
     async get(url, flags) {
       this.requests.push({ url, flags });
@@ -124,6 +126,30 @@ test("bounded FIFO queue starts all available slots and never exceeds concurrenc
   await calls[1].finish();
   await until(() => calls.length === 4);
   assert.match(calls[3].tempDir, new RegExp(jobs[3].id));
+});
+
+test("clip jobs validate their selected range and pass it through the shared queue", async (t) => {
+  const { manager, calls, create } = await fixture(t);
+  const clipRange = { startSeconds: 2, endSeconds: 8 };
+  await assert.rejects(create({ clipRange: { startSeconds: -1, endSeconds: 8 } }), error => error.code === "INVALID_CLIP_RANGE");
+  await assert.rejects(create({ clipRange: { startSeconds: 8, endSeconds: 8 } }), error => error.code === "INVALID_CLIP_RANGE");
+  await assert.rejects(create({ clipRange: { startSeconds: 2, endSeconds: 13 } }), error => error.code === "INVALID_CLIP_RANGE");
+  const job = await create({ clipRange });
+  assert.deepEqual(job.clipRange, clipRange);
+  await until(() => calls.length === 1);
+  assert.deepEqual(calls[0].clipRange, clipRange);
+  await calls[0].finish();
+  await until(() => manager.get(job.id).status === "completed");
+  assert.deepEqual(manager.get(job.id).clipRange, clipRange);
+});
+
+test("clip jobs fail clearly when FFmpeg is unavailable", async (t) => {
+  const { metadata, create } = await fixture(t);
+  metadata.availability.ffmpeg = false;
+  await assert.rejects(
+    create({ clipRange: { startSeconds: 1, endSeconds: 5 } }),
+    error => error.code === "MISSING_TOOL" && /require FFmpeg/.test(error.message),
+  );
 });
 
 test("cancelled active job retains its slot until stopped; queued cancellation never starts", async (t) => {

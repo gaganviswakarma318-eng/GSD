@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { DownloadJob, ThumbnailSettings } from "../types";
+import type { ClipRange, DownloadJob, ThumbnailSettings } from "../types";
 import { errorMessage } from "../utils";
 
 function newerJob(
@@ -87,8 +87,8 @@ export function useDownloads() {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [refresh]);
-  const create = async (url: string, optionId: string, saveToken?: string, settings?: ThumbnailSettings) => {
-    const job = await api.create(url, optionId, saveToken, settings);
+  const create = async (url: string, optionId: string, saveToken?: string, settings?: ThumbnailSettings, clipRange?: ClipRange) => {
+    const job = await api.create(url, optionId, saveToken, settings, clipRange);
     upsert(job);
     return job;
   };

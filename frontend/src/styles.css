@@ -306,9 +306,24 @@ main {
 }
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.38fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
   align-items: start;
+}
+.downloaders-area {
+  min-width: 0;
+}
+.downloaders-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+.download-section {
+  min-width: 0;
+}
+.downloader-tabs {
+  display: none;
 }
 .panel {
   border: 1px solid var(--line);
@@ -645,6 +660,71 @@ select:disabled {
   line-height: 1.6;
   margin-top: 9px;
   min-height: 15px;
+}
+.clip-controls {
+  padding: 18px 0 17px;
+  border-bottom: 1px solid #edf0e7;
+}
+.clip-range-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.clip-range-heading h3 {
+  font-size: 11px;
+  font-weight: 650;
+  color: #53604d;
+}
+.clip-range-heading span {
+  font-size: 9px;
+  color: #89927d;
+  text-align: right;
+}
+.clip-time-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.clip-time-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #e0e6d8;
+  border-radius: 8px;
+  background: #fcfdfb;
+  color: var(--ink);
+  padding: 11px 12px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.clip-time-input[aria-invalid="true"] {
+  border-color: #dfab9f;
+}
+.clip-slider-fields {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+.clip-slider-fields label {
+  display: grid;
+  gap: 5px;
+  color: #75806a;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.clip-slider-fields input {
+  width: 100%;
+  margin: 0;
+  accent-color: #789346;
+}
+.clip-range-error {
+  min-height: 0;
+}
+.inline-error.clip-range-error {
+  margin-top: 8px;
+  padding: 7px 9px;
+  font-size: 9px;
 }
 .thumbnail-options {
   margin-top: 17px;
@@ -1357,7 +1437,6 @@ select:disabled {
     padding: 0 30px;
   }
   .workspace-grid {
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     gap: 18px;
   }
   .composer {
@@ -1414,6 +1493,11 @@ select:disabled {
   }
   .intro-stamp {
     margin-right: 16px;
+  }
+}
+@media (max-width: 900px) {
+  .downloaders-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (max-width: 760px) {
@@ -1484,6 +1568,32 @@ select:disabled {
   .workspace-grid {
     grid-template-columns: 1fr;
     gap: 22px;
+  }
+  .downloader-tabs {
+    display: grid;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+    margin-bottom: 14px;
+  }
+  .downloader-tabs button {
+    min-height: 43px;
+    border: 1px solid #dfe5d7;
+    border-radius: 9px;
+    background: #fcfdfb;
+    color: #7b8570;
+    font-size: 12px;
+    font-weight: 600;
+  }
+  .downloader-tabs button[aria-selected="true"] {
+    border-color: #c8dca7;
+    background: #f1f7e8;
+    color: #344a23;
+  }
+  .downloaders-grid {
+    grid-template-columns: minmax(0, 1fr);
+  }
+  .download-section:not(.mobile-active) {
+    display: none;
   }
   .composer {
     padding: 24px 23px 17px;
@@ -3372,4 +3482,47 @@ html[data-theme="black"] select.theme-toggle {
     min-height: 36px;
     padding: 7px 25px 7px 29px;
   }
+}
+
+html:is([data-theme="dark"], [data-theme="black"]) .clip-controls {
+  border-color: var(--border-soft);
+}
+
+html:is([data-theme="dark"], [data-theme="black"])
+  :is(.clip-range-heading h3, .clip-time-fields .field-label) {
+  color: var(--text-secondary);
+}
+
+html:is([data-theme="dark"], [data-theme="black"])
+  :is(.clip-range-heading span, .clip-slider-fields label) {
+  color: var(--text-subtle);
+}
+
+html:is([data-theme="dark"], [data-theme="black"]) .clip-time-input {
+  border-color: var(--line);
+  background: var(--surface-subtle);
+  color: var(--ink);
+}
+
+html:is([data-theme="dark"], [data-theme="black"]) .clip-slider-fields input {
+  accent-color: var(--accent-text);
+}
+
+html:is([data-theme="dark"], [data-theme="black"]) .downloader-tabs button {
+  border-color: var(--line);
+  background: var(--surface-subtle);
+  color: var(--text-secondary);
+}
+
+html:is([data-theme="dark"], [data-theme="black"])
+  .downloader-tabs button[aria-selected="true"] {
+  border-color: var(--accent-border);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+}
+
+html:is([data-theme="dark"], [data-theme="black"]) .inline-error.clip-range-error {
+  border-color: #70443e;
+  background: #3a2b28;
+  color: var(--error);
 }

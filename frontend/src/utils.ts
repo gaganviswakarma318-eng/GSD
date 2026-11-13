@@ -11,6 +11,30 @@ export function formatDuration(seconds: number | null | undefined): string {
   const minutes = Math.floor((n % 3600) / 60);
   return `${hours ? `${hours}:${String(minutes).padStart(2, "0")}` : minutes}:${String(n % 60).padStart(2, "0")}`;
 }
+export function formatTimecode(seconds: number): string {
+  const total = Math.max(0, Math.floor(seconds));
+  const hours = Math.floor(total / 3600);
+  const minutes = Math.floor((total % 3600) / 60);
+  const remainder = total % 60;
+  return hours
+    ? `${hours}:${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`
+    : `${String(minutes).padStart(2, "0")}:${String(remainder).padStart(2, "0")}`;
+}
+export function parseTimecode(value: string): number | null {
+  const parts = value.trim().split(":");
+  if (
+    (parts.length !== 2 && parts.length !== 3) ||
+    parts.some((part) => !/^\d+$/.test(part))
+  )
+    return null;
+  const numbers = parts.map(Number);
+  const seconds = numbers.at(-1)!;
+  const minutes = numbers.at(-2)!;
+  if (seconds > 59 || (parts.length === 3 && minutes > 59)) return null;
+  return parts.length === 3
+    ? numbers[0] * 3600 + minutes * 60 + seconds
+    : minutes * 60 + seconds;
+}
 export function formatEta(seconds: number | null): string {
   if (seconds == null || !Number.isFinite(seconds)) return "Calculating time…";
   if (seconds < 1) return "Almost there";
