@@ -33,10 +33,24 @@ function validateClipRange(clipRange, duration) {
   )
     throw new ApiError('Enter a valid clip start and end time.', 400, 'INVALID_CLIP_RANGE');
   if (!Number.isFinite(duration) || duration <= 0)
-    throw new ApiError('This source does not report a video duration, so GSD cannot validate a clip range.', 422, 'INVALID_CLIP_RANGE');
+    throw new ApiError('This source does not report a media duration, so GSD cannot validate a clip range.', 422, 'INVALID_CLIP_RANGE');
   if (clipRange.endSeconds > duration)
     throw new ApiError('The clip end time must be within the video duration.', 422, 'INVALID_CLIP_RANGE');
   return { startSeconds: clipRange.startSeconds, endSeconds: clipRange.endSeconds };
+}
+
+function instagramDownloadError(message) {
+  if (!message) return "The Instagram download failed. Analyze the link again and retry.";
+  if (/^This Instagram /i.test(message)) return message;
+  if (/HTTP Error 429|\b429\b|too many requests|rate.?limit/i.test(message))
+    return "Instagram is temporarily limiting requests. Wait a little while, then retry.";
+  if (/HTTP Error (404|410)|\b(404|410)\b|not found|expired/i.test(message))
+    return "This Instagram media link has expired or is no longer available. Analyze the link again and retry.";
+  if (/requires sign-in|blocking the request|HTTP Error (401|403)|\b(401|403)\b|expired|signature/i.test(message))
+    return "Instagram rejected the temporary media link. It may have expired or access changed; analyze the link again and retry.";
+  if (/timed out|connection|network|HTTP Error 5\d\d/i.test(message))
+    return "A network error interrupted the Instagram download. Check the connection and retry.";
+  return message;
 }
 
 class DownloadManager {
@@ -78,7 +92,7 @@ class DownloadManager {
 
   view(record) {
     if (!record) return null;
-    const { owner, raw, option, destination, filePath, sidecarPath, tempDir, controller, promise, transfers, settling, deliveryAcknowledged, mediaDelivered, expiring, ...view } = record;
+    const { owner, raw, option, destination, filePath, sidecarPath, tempDir, controller, promise, transfers, settling, deliveryAcknowledged, mediaDelivered, expiring, refreshMetadata, ...view } = record;
     return { ...view };
   }
 
@@ -107,11 +121,18 @@ class DownloadManager {
     if (typeof embedThumbnail !== 'boolean' || typeof thumbnailSidecar !== 'boolean') throw new ApiError('Thumbnail settings must be true or false.', 400, 'INVALID_OPTIONS');
     this.checkCapacity();
     const info = await this.metadata.get(url);
+    return this.createFromInfo(info, { url, optionId, saveToken, embedThumbnail, thumbnailSidecar, clipRange }, owner);
+  }
+
+  async createFromInfo(info, { url, optionId, saveToken, embedThumbnail = true, thumbnailSidecar = false, clipRange }, owner, { source = null, refreshMetadata = null } = {}) {
+    if (typeof embedThumbnail !== 'boolean' || typeof thumbnailSidecar !== 'boolean') throw new ApiError('Thumbnail settings must be true or false.', 400, 'INVALID_OPTIONS');
+    if (refreshMetadata !== null && typeof refreshMetadata !== 'function') throw new ApiError('The media refresh handler is invalid.', 500, 'INVALID_OPTIONS');
+    this.checkCapacity();
     const option = info.options.find(value => value.id === optionId);
     if (!option) throw new ApiError('This format is no longer available. Analyze the link again and choose a current quality.', 422, 'INVALID_OPTION');
     let selectedClip = null;
     if (clipRange !== undefined) {
-      if (option.type !== 'video') throw new ApiError('Clip downloads require a video format.', 400, 'INVALID_CLIP_RANGE');
+      if (!['audio', 'video'].includes(option.type)) throw new ApiError('Clip downloads require an audio or video format.', 400, 'INVALID_CLIP_RANGE');
       if (this.metadata.availability?.ffmpeg === false) throw new ApiError('Clip downloads require FFmpeg. Install FFmpeg or configure GSD_FFMPEG_PATH.', 503, 'MISSING_TOOL');
       selectedClip = validateClipRange(clipRange, info.public.duration);
     }
@@ -124,7 +145,7 @@ class DownloadManager {
     }
     this.checkCapacity();
     const time = this.now();
-    const record = { id: crypto.randomUUID(), owner, url: info.public.url, title: info.public.title, thumbnail: info.public.thumbnail, type: option.type, format: option.format, quality: option.quality, status: 'queued', progress: 0, downloadedBytes: 0, totalBytes: option.estimatedSize || null, speedBytes: null, etaSeconds: null, queuePosition: null, attempt: 1, error: null, filename: null, createdAt: time, updatedAt: time, raw: info.raw, option, clipRange: selectedClip, destination, filePath: null, tempDir: null, controller: null, promise: null, transfers: 0 };
+    const record = { id: crypto.randomUUID(), owner, url: info.public.url || url, title: info.public.title, thumbnail: info.public.thumbnail, type: option.type, format: option.format, quality: option.quality, status: 'queued', progress: 0, downloadedBytes: 0, totalBytes: option.estimatedSize || null, speedBytes: null, etaSeconds: null, queuePosition: null, attempt: 1, error: null, filename: null, createdAt: time, updatedAt: time, raw: info.raw, option, clipRange: selectedClip, destination, filePath: null, tempDir: null, controller: null, promise: null, transfers: 0, ...(source ? { source } : {}), ...(refreshMetadata ? { refreshMetadata } : {}) };
     Object.assign(record, { embedThumbnail, thumbnailSidecar, stage: null, warnings: [], thumbnailEmbedded: false, sidecarPath: null, sidecarFilename: null, sidecarDelivered: false, mediaDelivered: false });
     this.jobs.set(record.id, record);
     this.queue.push(record.id);
@@ -163,7 +184,12 @@ class DownloadManager {
       if (signal.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
       // Refresh signed source URLs after retries or a long wait in the queue.
       if (record.attempt > 1 || this.now() - record.createdAt >= this.config.metadataTtlMs) {
-        const info = await withAbort(this.metadata.get(record.url, { refresh: true }), signal);
+        const info = await withAbort(
+          record.refreshMetadata
+            ? record.refreshMetadata(signal)
+            : this.metadata.get(record.url, { refresh: true }),
+          signal,
+        );
         const option = info.options.find(value => value.id === record.option.id);
         if (!option) throw new Error('The selected quality has changed. Analyze the link again and choose an available format.');
         if (record.clipRange) validateClipRange(record.clipRange, info.public.duration);
@@ -171,7 +197,7 @@ class DownloadManager {
         record.option = option;
       }
       if (signal.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
-      const output = await this.runner({ config: this.config, raw: record.raw, option: record.option, clipRange: record.clipRange, tempDir: record.tempDir, signal, embedThumbnail: record.embedThumbnail, thumbnailSidecar: record.thumbnailSidecar, onProgress: patch => {
+      const output = await this.runner({ config: this.config, raw: record.raw, option: record.option, clipRange: record.clipRange, tempDir: record.tempDir, signal, source: record.source, embedThumbnail: record.embedThumbnail, thumbnailSidecar: record.thumbnailSidecar, onProgress: patch => {
         if (!signal.aborted) this.update(record, patch);
       } });
       if (signal.aborted) throw Object.assign(new Error('Cancelled'), { name: 'AbortError' });
@@ -218,7 +244,8 @@ class DownloadManager {
       const cancelled = signal.aborted || error.name === 'AbortError';
       let cleanupError = null;
       try { await this.cleanup(record); } catch { cleanupError = ' Some temporary files are still in use; GSD will try cleaning them again.'; }
-      this.update(record, { status: cancelled ? 'cancelled' : 'failed', stage: null, error: cleanupError ? `${cancelled ? 'Download cancelled.' : error.message}${cleanupError}` : cancelled ? null : error.message, queuePosition: null, speedBytes: null, etaSeconds: null });
+      const message = record.source === 'instagram' ? instagramDownloadError(error.message || '') : error.message;
+      this.update(record, { status: cancelled ? 'cancelled' : 'failed', stage: null, error: cleanupError ? `${cancelled ? 'Download cancelled.' : message}${cleanupError}` : cancelled ? null : message, queuePosition: null, speedBytes: null, etaSeconds: null });
     }
   }
 

@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { ClipRange, DownloadJob, ThumbnailSettings } from "../types";
+import type { ClipRange, DownloadJob, InstagramQueueResult, InstagramSelection, ThumbnailSettings } from "../types";
 import { errorMessage } from "../utils";
 
 function newerJob(
@@ -92,6 +92,15 @@ export function useDownloads() {
     upsert(job);
     return job;
   };
+  const createInstagram = async (
+    url: string,
+    items: InstagramSelection[],
+    saveToken?: string,
+  ): Promise<InstagramQueueResult> => {
+    const result = await api.instagramQueue(url, items, saveToken);
+    result.jobs.forEach(upsert);
+    return result;
+  };
   const cancel = async (id: string) => {
     const job = await api.cancel(id);
     upsert(job);
@@ -100,5 +109,15 @@ export function useDownloads() {
     const job = await api.retry(id);
     upsert(job);
   };
-  return { jobs, loading, error, reconnecting, create, cancel, retry, refresh };
+  return {
+    jobs,
+    loading,
+    error,
+    reconnecting,
+    create,
+    createInstagram,
+    cancel,
+    retry,
+    refresh,
+  };
 }

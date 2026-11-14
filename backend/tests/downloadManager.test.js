@@ -17,6 +17,15 @@ const option = {
   selector: "22",
   requiresConversion: false,
 };
+const audioOption = {
+  id: "mp3-source",
+  type: "audio",
+  format: "mp3",
+  quality: "VBR quality 2",
+  selector: "audio",
+  extractAudio: true,
+  requiresConversion: true,
+};
 const info = {
   public: {
     url: "https://example.com/video",
@@ -25,7 +34,7 @@ const info = {
     duration: 12,
   },
   raw: { title: "Shared title" },
-  options: [option],
+  options: [option, audioOption],
 };
 const delay = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
 async function until(predicate) {
@@ -128,6 +137,65 @@ test("bounded FIFO queue starts all available slots and never exceeds concurrenc
   assert.match(calls[3].tempDir, new RegExp(jobs[3].id));
 });
 
+test("Instagram image jobs keep private refresh callbacks server-side and refresh on retry", async (t) => {
+  const { manager, calls } = await fixture(t);
+  const imageOption = {
+    id: "instagram-image",
+    type: "image",
+    format: "jpg",
+    quality: "Original",
+    selector: "instagram-image-0",
+    requiresConversion: false,
+  };
+  const imageInfo = {
+    public: {
+      ...info.public,
+      title: "Public creator · photo 1",
+    },
+    raw: {
+      id: "photo",
+      title: "Public creator · photo 1",
+      formats: [
+        {
+          format_id: "instagram-image-0",
+          url: "https://scontent.cdninstagram.com/photo.jpg",
+          ext: "jpg",
+        },
+      ],
+    },
+    options: [imageOption],
+  };
+  let refreshes = 0;
+  const refreshMetadata = async () => {
+    refreshes += 1;
+    return imageInfo;
+  };
+  const job = await manager.createFromInfo(
+    imageInfo,
+    {
+      url: "https://www.instagram.com/p/ABC/",
+      optionId: imageOption.id,
+      embedThumbnail: false,
+      thumbnailSidecar: false,
+    },
+    "owner",
+    { source: "instagram", refreshMetadata },
+  );
+  assert.equal(job.type, "image");
+  assert.equal(job.source, "instagram");
+  assert.equal("refreshMetadata" in job, false);
+  await until(() => calls.length === 1);
+  assert.equal(calls[0].source, "instagram");
+  calls[0].fail(new Error("expired URL"));
+  await until(() => manager.get(job.id).status === "failed");
+  await manager.retry(job.id, "owner");
+  await until(() => calls.length === 2);
+  assert.equal(refreshes, 1);
+  assert.equal(calls[1].source, "instagram");
+  await calls[1].finish();
+  await until(() => manager.get(job.id).status === "completed");
+});
+
 test("clip jobs validate their selected range and pass it through the shared queue", async (t) => {
   const { manager, calls, create } = await fixture(t);
   const clipRange = { startSeconds: 2, endSeconds: 8 };
@@ -141,6 +209,18 @@ test("clip jobs validate their selected range and pass it through the shared que
   await calls[0].finish();
   await until(() => manager.get(job.id).status === "completed");
   assert.deepEqual(manager.get(job.id).clipRange, clipRange);
+});
+
+test("Clip Studio can queue an audio-only cut through the same range workflow", async (t) => {
+  const { manager, calls, create } = await fixture(t);
+  const clipRange = { startSeconds: 1, endSeconds: 6 };
+  const job = await create({ optionId: audioOption.id, clipRange });
+  assert.equal(job.type, "audio");
+  assert.deepEqual(job.clipRange, clipRange);
+  await until(() => calls.length === 1);
+  assert.deepEqual(calls[0].clipRange, clipRange);
+  await calls[0].finish();
+  await until(() => manager.get(job.id).status === "completed");
 });
 
 test("clip jobs fail clearly when FFmpeg is unavailable", async (t) => {

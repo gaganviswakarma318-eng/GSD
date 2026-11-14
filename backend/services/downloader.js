@@ -21,8 +21,8 @@ function sectionTime(seconds) {
   return Number(seconds.toFixed(3)).toString();
 }
 
-function buildArgs(config, option, infoPath, tempDir, clipRange) {
-  const args = [...commonArgs(config), '--no-simulate', '--newline', '--progress', '--progress-delta', '0.3', '--concurrent-fragments', '3', '--fragment-retries', '3', '--windows-filenames', '--no-overwrites', '--paths', tempDir, '--output', 'media.%(ext)s', '--format', option.selector,
+function buildArgs(config, option, infoPath, tempDir, clipRange, source) {
+  const args = [...commonArgs(config, { cookies: source !== 'instagram' }), '--no-simulate', '--newline', '--progress', '--progress-delta', '0.3', '--concurrent-fragments', '3', '--fragment-retries', '3', '--windows-filenames', '--no-overwrites', '--paths', tempDir, '--output', 'media.%(ext)s', '--format', option.selector,
     '--progress-template', 'download:GSD_PROGRESS:{"downloaded_bytes":%(progress.downloaded_bytes|0)s,"total_bytes":%(progress.total_bytes|0)s,"total_bytes_estimate":%(progress.total_bytes_estimate|0)s,"speed":%(progress.speed|0)s,"eta":%(progress.eta|0)s,"format_id":%(info.format_id)j,"status":%(progress.status)j}', '--progress-template', 'postprocess:GSD_PROCESSING:{"postprocessor":%(progress.postprocessor)j,"status":%(progress.status)j}', '--print', 'after_move:GSD_FILE:%(filepath)j', '--load-info-json', infoPath];
   if (clipRange) args.push('--download-sections', `*${sectionTime(clipRange.startSeconds)}-${sectionTime(clipRange.endSeconds)}`, '--force-keyframes-at-cuts');
   const ffmpeg = config.tools.ffmpeg;
@@ -32,11 +32,11 @@ function buildArgs(config, option, infoPath, tempDir, clipRange) {
   return args;
 }
 
-async function runDownload({ config, raw, option, clipRange, tempDir, signal, onProgress, embedThumbnail = true, thumbnailSidecar = false, processRunner = runProcess }) {
+async function runDownload({ config, raw, option, clipRange, tempDir, signal, onProgress, embedThumbnail = true, thumbnailSidecar = false, source, processRunner = runProcess }) {
   const infoPath = path.join(tempDir, 'source.info.json');
   await fs.writeFile(infoPath, JSON.stringify(raw), { mode: 0o600 });
   let filePath = null;
-  const args = buildArgs(config, option, infoPath, tempDir, clipRange);
+  const args = buildArgs(config, option, infoPath, tempDir, clipRange, source);
   const duration = numeric(raw.duration);
   const sizeRatio = clipRange && duration
     ? Math.min(1, (clipRange.endSeconds - clipRange.startSeconds) / duration)

@@ -1,7 +1,7 @@
 // Apply the saved appearance before the interface paints (also allowed by GSD's CSP).
 (function () {
   var themes = ["light", "dark", "black"];
-  var theme = "light";
+  var theme = "dark";
   try {
     var saved = window.localStorage.getItem("gsd-theme");
     if (themes.indexOf(saved) !== -1) theme = saved;
@@ -18,7 +18,7 @@
       theme === "light"
         ? "#f3f2ec"
         : theme === "dark"
-          ? "#1d221e"
+          ? "#090B0D"
           : "#000000",
     );
 })();

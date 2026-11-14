@@ -8,7 +8,27 @@ const { ApiError } = require("./utils/errors");
 const { probeTools } = require("./utils/processes");
 const { MetadataService } = require("./services/metadata");
 const { DownloadManager } = require("./services/downloadManager");
-const { PreviewManager } = require("./services/previewManager");
+const {
+  InstagramExtractor,
+  MAX_EXTRACTED_ITEMS,
+} = require("./services/instagram");
+
+function requestAbortController(req, res) {
+  const controller = new AbortController();
+  const onAborted = () => controller.abort();
+  const onClose = () => {
+    if (!res.writableEnded) controller.abort();
+  };
+  req.once("aborted", onAborted);
+  res.once("close", onClose);
+  return {
+    signal: controller.signal,
+    close() {
+      req.off("aborted", onAborted);
+      res.off("close", onClose);
+    },
+  };
+}
 
 async function startServer(options = {}) {
   const config = createConfig(options);
@@ -20,10 +40,10 @@ async function startServer(options = {}) {
   const manager =
     options.manager ||
     new DownloadManager(config, metadata, options.managerDependencies);
-  const previewManager =
-    options.previewManager || new PreviewManager(config, metadata);
+  const instagram =
+    options.instagram ||
+    new InstagramExtractor(config, availability, options.instagramDependencies);
   await manager.initialize();
-  await previewManager.initialize();
   const app = express();
   const server = http.createServer(app);
   const sessions = new Map();
@@ -108,39 +128,81 @@ async function startServer(options = {}) {
   app.post("/api/info", async (req, res) =>
     res.json((await metadata.get(req.body?.url)).public),
   );
-  app.post("/api/previews", async (req, res) =>
-    res.status(202).json(await previewManager.create(req.body?.url, req.sessionId)),
-  );
-  app.get("/api/previews/:id/file", (req, res, next) => {
-    const record = previewManager.beginDelivery(req.params.id, req.sessionId);
-    let settled = false;
-    const finish = () => {
-      if (settled) return;
-      settled = true;
-      void previewManager
-        .finishDelivery(record)
-        .catch((error) => console.error("GSD preview cleanup:", error.message));
-    };
-    res.once("close", finish);
-    res.once("error", finish);
-    res.sendFile(record.filePath, { dotfiles: "deny" }, (error) => {
-      finish();
-      if (error && !res.headersSent && !res.destroyed)
-        next(
-          new ApiError(
-            "Unable to play the video preview. Try preparing it again.",
-            500,
-            "PREVIEW_DELIVERY_ERROR",
-          ),
-        );
-    });
+  app.post("/api/instagram/info", async (req, res) => {
+    const request = requestAbortController(req, res);
+    try {
+      res.json(await instagram.inspect(req.body?.url, request.signal));
+    } finally {
+      request.close();
+    }
   });
-  app.get("/api/previews/:id", (req, res) =>
-    res.json(previewManager.get(req.params.id, req.sessionId)),
-  );
-  app.delete("/api/previews/:id", async (req, res) =>
-    res.json(await previewManager.remove(req.params.id, req.sessionId)),
-  );
+  app.post("/api/instagram/jobs", async (req, res) => {
+    const { url, items, saveToken } = req.body || {};
+    if (
+      typeof url !== "string" ||
+      !Array.isArray(items) ||
+      items.length < 1 ||
+      items.length > MAX_EXTRACTED_ITEMS ||
+      items.some(
+        (item) =>
+          !item ||
+          typeof item.itemId !== "string" ||
+          item.itemId.length > 300 ||
+          typeof item.optionId !== "string" ||
+          item.optionId.length > 100,
+      )
+    )
+      throw new ApiError(
+        "Choose at least one valid Instagram media item to download.",
+        400,
+        "INVALID_INSTAGRAM_SELECTION",
+      );
+    const request = requestAbortController(req, res);
+    try {
+      const extracted = await instagram.extract(url, request.signal);
+      const jobs = [];
+      const errors = [];
+      for (const selection of items) {
+        if (request.signal.aborted) break;
+        try {
+          const prepared = await instagram.prepareDownload(
+            extracted.url,
+            selection.itemId,
+            selection.optionId,
+            extracted,
+          );
+          const job = await manager.createFromInfo(
+            prepared.info,
+            {
+              url: extracted.url,
+              optionId: selection.optionId,
+              saveToken,
+              embedThumbnail: false,
+              thumbnailSidecar: false,
+            },
+            req.sessionId,
+            {
+              source: "instagram",
+              refreshMetadata: prepared.refresh,
+            },
+          );
+          jobs.push(job);
+        } catch (error) {
+          errors.push({
+            itemId: selection.itemId,
+            error:
+              error instanceof ApiError
+                ? error.message
+                : "This Instagram item could not be queued.",
+          });
+        }
+      }
+      if (!request.signal.aborted)
+        res.status(errors.length ? 207 : 201).json({ jobs, errors });
+    } finally {
+      request.close();
+    }
+  });
   app.get("/api/jobs", (req, res) => res.json(manager.list(req.sessionId)));
   app.post("/api/jobs", async (req, res) =>
     res.status(201).json(await manager.create(req.body || {}, req.sessionId)),
@@ -264,7 +326,18 @@ async function startServer(options = {}) {
       .json({ error: "API endpoint not found.", code: "NOT_FOUND" }),
   );
   app.use(express.static(config.frontendPath, { index: "index.html" }));
-  app.get(["/", "/clip"], (req, res) => {
+  app.get(
+    [
+      "/",
+      "/home",
+      "/universal",
+      "/instagram",
+      "/clip",
+      "/processing",
+      "/library",
+      "/settings",
+    ],
+    (req, res) => {
     const index = path.join(config.frontendPath, "index.html");
     if (fs.existsSync(index)) return res.sendFile(index);
     return res
@@ -272,7 +345,8 @@ async function startServer(options = {}) {
       .send(
         "GSD frontend is not built. Run npm run build, then start GSD again.",
       );
-  });
+    },
+  );
   app.use((error, req, res, next) => {
     if (res.headersSent) return next(error);
     const status =
@@ -294,7 +368,7 @@ async function startServer(options = {}) {
       server.listen(config.port, config.host, resolve);
     });
   } catch (error) {
-    await Promise.all([metadata.close(), manager.close(), previewManager.close()]);
+    await Promise.all([metadata.close(), manager.close(), instagram.close()]);
     throw error;
   }
   origin = `http://${config.host === "::1" ? "[::1]" : config.host}:${server.address().port}`;
@@ -314,11 +388,7 @@ async function startServer(options = {}) {
       for (const stream of streams) stream.end();
       const stopped = new Promise((resolve) => server.close(resolve));
       server.closeIdleConnections?.();
-      await Promise.all([
-        metadata.close(),
-        manager.close(),
-        previewManager.close(),
-      ]);
+      await Promise.all([metadata.close(), manager.close(), instagram.close()]);
       server.closeAllConnections?.();
       await stopped;
     })();
@@ -330,7 +400,7 @@ async function startServer(options = {}) {
     url: origin,
     manager,
     metadata,
-    previewManager,
+    instagram,
     close,
     config,
   };

@@ -49,6 +49,32 @@ test("initial API requests share one session handshake before parallel calls", a
   assert.deepEqual(calls, ["/api/health", "/api/jobs", "/api/health"]);
 });
 
+test("Instagram inspection and selected-item queue use the dedicated API routes", async () => {
+  const calls = [];
+  const { api } = client(async (url, options) => {
+    calls.push({ url, options });
+    return json(
+      url.endsWith("/instagram/info")
+        ? { contentType: "carousel", items: [] }
+        : { jobs: [], errors: [] },
+    );
+  });
+  const instagramUrl = "https://www.instagram.com/p/ABC/";
+  await api.instagramInfo(instagramUrl, new AbortController().signal);
+  const items = [{ itemId: "0:photo", optionId: "image-format" }];
+  const result = await api.instagramQueue(instagramUrl, items, "folder-token");
+  assert.deepEqual(result, { jobs: [], errors: [] });
+  assert.equal(calls[0].url, "/api/health");
+  assert.equal(calls[1].url, "/api/instagram/info");
+  assert.equal(calls[1].options.method, "POST");
+  assert.equal(calls[2].url, "/api/instagram/jobs");
+  assert.deepEqual(JSON.parse(calls[2].options.body), {
+    url: instagramUrl,
+    items,
+    saveToken: "folder-token",
+  });
+});
+
 test("job creation preserves thumbnail preferences and the existing save destination", async () => {
   const calls = [];
   const { api } = client(async (url, options) => {

@@ -28,13 +28,18 @@ const sources = Promise.all([
   return [filename, `${code}\nmodule.exports = { ${exported.join(", ")} };`];
 })).then((entries) => new Map(entries));
 
-async function composer(format, { ffmpegAvailable = true, thumbnail = "https://example.com/cover.webp" } = {}) {
+async function composer(format, {
+  ffmpegAvailable = true,
+  thumbnail = "https://example.com/cover.webp",
+  mode = "full",
+} = {}) {
   const type = /^(mp3|m4a|flac|opus)$/.test(format) ? "audio" : "video";
   const supported = !["webm", "opus"].includes(format);
   const info = {
     url: "https://example.com/media",
     title: "Artwork fixture",
     thumbnail,
+    duration: 120,
     options: [{
       id: `source-${format}`,
       type,
@@ -72,12 +77,18 @@ async function composer(format, { ffmpegAvailable = true, thumbnail = "https://e
     vm.runInNewContext(source.get(filename), {
       module,
       window: {},
+      URL,
+      AbortController,
       require(id) {
         if (id === "react") return hooks;
         if (id.endsWith("/config")) return { isDesktop: false };
         if (id.endsWith("/hooks/useMediaInfo")) return {
           useMediaInfo: () => ({ info, loading: false, error: "", lookup() {}, clear() {} }),
         };
+        if (id.endsWith("/api/client"))
+          return {
+            api: { info: async (url) => ({ ...info, url }) },
+          };
         if (id === "./MediaPreview") return { MediaPreview: () => null };
         if (!id.startsWith(".")) return require(id);
         const target = path.resolve(path.dirname(filename), id);
@@ -95,6 +106,7 @@ async function composer(format, { ffmpegAvailable = true, thumbnail = "https://e
     return Component({
       unavailable: false,
       ffmpegAvailable,
+      mode,
       onQueue: async (...args) => { queued.push(args); return { id: "new-job" }; },
     });
   };
@@ -111,16 +123,29 @@ async function composer(format, { ffmpegAvailable = true, thumbnail = "https://e
     element.type === "label" && React.Children.toArray(element.props.children)
       .some((child) => React.isValidElement(child) && child.props.children === label));
   const input = (label) => find((element) => element.type === "input", checkbox(label));
+  const slider = (label) => find((element) =>
+    element.type === "input" &&
+    element.props.type === "range" &&
+    element.props["aria-label"] === label);
   return {
     html: () => renderToStaticMarkup(tree()),
+    find,
     input,
+    slider,
     queued,
     async start() {
-      const button = find((element) => element.type === "button" && element.props.className.includes("download-button"));
-      button.props.onClick();
+      const form = find((element) => element.type === "form");
+      form.props.onSubmit({ preventDefault() {} });
       await new Promise(setImmediate);
     },
   };
+}
+
+function textContent(element) {
+  if (typeof element === "string" || typeof element === "number")
+    return String(element);
+  if (!React.isValidElement(element)) return "";
+  return React.Children.toArray(element.props.children).map(textContent).join("");
 }
 
 test("MP3, M4A and MP4 enable cover artwork by default and queue the preference", async () => {
@@ -177,4 +202,46 @@ test("Matroska describes limited artwork player support and absent thumbnails ar
   assert.match(absent.html(), /No thumbnail was found. Your media will still download normally/);
   await absent.start();
   assert.equal(absent.queued.length, 1);
+});
+
+test("Clip Studio uses metadata-based sliders and queues the selected range without preparing a preview", async () => {
+  const view = await composer("mp4", { mode: "clip" });
+  assert.equal(view.slider("Clip start point").props.value, 0);
+  assert.equal(view.slider("Clip end point").props.value, 30);
+  assert.match(view.html(), /id="clip-start-time"/);
+  assert.match(view.html(), /id="clip-end-time"/);
+  assert.doesNotMatch(view.html(), /Preparing video timeline/);
+
+  view.slider("Clip end point").props.onChange({ target: { value: "60" } });
+  view.slider("Clip start point").props.onChange({ target: { value: "10" } });
+  await view.start();
+
+  assert.deepEqual(JSON.parse(JSON.stringify(view.queued[0][4])), {
+    startSeconds: 10,
+    endSeconds: 60,
+  });
+});
+
+test("multiple URL mode adds real links to the shared queue", async () => {
+  const view = await composer("mp4");
+  view.find((element) =>
+    element.type === "button" &&
+    textContent(element).includes("Multiple URLs"),
+  ).props.onClick();
+  view.find((element) => element.type === "textarea").props.onChange({
+    target: {
+      value: "https://example.com/one\nhttps://example.com/two",
+    },
+  });
+  view.find((element) =>
+    element.type === "button" && textContent(element).includes("Add links"),
+  ).props.onClick();
+  view.find((element) => element.type === "form").props.onSubmit({
+    preventDefault() {},
+  });
+  await new Promise(setImmediate);
+  assert.deepEqual(
+    view.queued.map((item) => item[0]),
+    ["https://example.com/one", "https://example.com/two"],
+  );
 });

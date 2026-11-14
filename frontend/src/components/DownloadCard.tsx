@@ -103,9 +103,16 @@ export function DownloadCard({
         <div className="job-info">
           <h3 title={job.title}>{job.title}</h3>
           <div className="job-tags">
+            {job.source === "instagram" && <span>Instagram</span>}
             <span>{job.format.toUpperCase()}</span>
             <span>{job.quality}</span>
-            <span>{job.type === "audio" ? "Audio" : "Video"}</span>
+            <span>
+              {job.type === "image"
+                ? "Image"
+                : job.type === "audio"
+                  ? "Audio"
+                  : "Video"}
+            </span>
           </div>
         </div>
         {active && (

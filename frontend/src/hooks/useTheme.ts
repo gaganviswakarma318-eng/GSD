@@ -10,14 +10,14 @@ export const isTheme = (value: string | undefined | null): value is Theme =>
 
 const themeColor: Record<Theme, string> = {
   light: "#f3f2ec",
-  dark: "#1d221e",
+  dark: "#090B0D",
   black: "#000000",
 };
 
 export function useTheme() {
   const [theme, setTheme] = useState<Theme>(() => {
     const initial = document.documentElement.dataset.theme;
-    return isTheme(initial) ? initial : "light";
+    return isTheme(initial) ? initial : "dark";
   });
 
   useEffect(() => {
@@ -37,7 +37,7 @@ export function useTheme() {
   useEffect(() => {
     const sync = (event: StorageEvent) => {
       if (event.key === STORAGE_KEY || event.key === null)
-        setTheme(isTheme(event.newValue) ? event.newValue : "light");
+        setTheme(isTheme(event.newValue) ? event.newValue : "dark");
     };
     window.addEventListener("storage", sync);
     return () => window.removeEventListener("storage", sync);

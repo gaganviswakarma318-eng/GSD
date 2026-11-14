@@ -1,4 +1,12 @@
-export type MediaType = "audio" | "video";
+export type MediaType = "audio" | "video" | "image";
+export type InstagramContentType =
+  | "photo"
+  | "carousel"
+  | "video"
+  | "reel"
+  | "story"
+  | "highlight"
+  | "profile";
 export interface MediaOption {
   id: string;
   type: MediaType;
@@ -27,14 +35,34 @@ export interface MediaInfo {
   thumbnail: string | null;
   duration: number | null;
   extractor: string;
+  creator?: string | null;
+  viewCount?: number | null;
   options: MediaOption[];
 }
-export interface VideoPreview {
+export interface InstagramMediaItem {
   id: string;
-  status: "preparing" | "ready" | "failed" | "cancelled";
-  progress: number;
-  error: string | null;
+  index: number;
+  kind: "image" | "video";
+  title: string;
+  thumbnail: string | null;
   duration: number | null;
+  options: MediaOption[];
+  error: string | null;
+}
+export interface InstagramInfo {
+  url: string;
+  contentType: InstagramContentType;
+  title: string;
+  creator: string | null;
+  items: InstagramMediaItem[];
+}
+export interface InstagramSelection {
+  itemId: string;
+  optionId: string;
+}
+export interface InstagramQueueResult {
+  jobs: DownloadJob[];
+  errors: Array<{ itemId: string; error: string }>;
 }
 export type JobStatus =
   | "queued"
@@ -50,6 +78,7 @@ export interface DownloadJob {
   title: string;
   thumbnail: string | null;
   type: MediaType;
+  source?: "instagram";
   format: string;
   quality: string;
   status: JobStatus;

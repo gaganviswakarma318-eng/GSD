@@ -1,5 +1,5 @@
 import { API_BASE } from "../config";
-import type { ClipRange, DownloadJob, Health, MediaInfo, SaveFileHandle, ThumbnailSettings, VideoPreview } from "../types";
+import type { ClipRange, DownloadJob, Health, InstagramInfo, InstagramQueueResult, InstagramSelection, MediaInfo, SaveFileHandle, ThumbnailSettings } from "../types";
 
 let sessionReady: Promise<void> | null = null;
 function ensureSession(): Promise<void> {
@@ -50,14 +50,16 @@ export const api = {
   health: () => request<Health>("/health"),
   info: (url: string, signal: AbortSignal) =>
     request<MediaInfo>("/info", { ...post({ url }), signal }),
-  createPreview: (url: string) =>
-    request<VideoPreview>("/previews", post({ url })),
-  preview: (id: string) =>
-    request<VideoPreview>(`/previews/${encodeURIComponent(id)}`),
-  removePreview: (id: string) =>
-    request<{ removed: boolean }>(
-      `/previews/${encodeURIComponent(id)}`,
-      { ...post({}), method: "DELETE" },
+  instagramInfo: (url: string, signal: AbortSignal) =>
+    request<InstagramInfo>("/instagram/info", { ...post({ url }), signal }),
+  instagramQueue: (
+    url: string,
+    items: InstagramSelection[],
+    saveToken?: string,
+  ) =>
+    request<InstagramQueueResult>(
+      "/instagram/jobs",
+      post({ url, items, saveToken }),
     ),
   jobs: () => request<DownloadJob[]>("/jobs"),
   create: (url: string, optionId: string, saveToken?: string, settings?: ThumbnailSettings, clipRange?: ClipRange) =>
@@ -70,8 +72,6 @@ export const api = {
     request<DownloadJob>(`/jobs/${encodeURIComponent(id)}/delivered`, post({})),
   eventsUrl: () => `${API_BASE}/events`,
   fileUrl: (id: string) => `${API_BASE}/jobs/${encodeURIComponent(id)}/file`,
-  previewFileUrl: (id: string) =>
-    `${API_BASE}/previews/${encodeURIComponent(id)}/file`,
   thumbnailUrl: (id: string) => `${API_BASE}/jobs/${encodeURIComponent(id)}/thumbnail`,
 };
 export async function saveToHandle(

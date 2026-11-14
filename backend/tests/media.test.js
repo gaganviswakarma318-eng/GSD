@@ -51,7 +51,13 @@ const formats = [
     has_drm: true,
   },
 ];
-const raw = { title: "Test", duration: 12, formats };
+const raw = {
+  title: "Test",
+  duration: 12,
+  uploader: "Test channel",
+  view_count: 42,
+  formats,
+};
 
 test("quality choices represent available streams, compatible merges, and MP3 conversion only", () => {
   const available = buildOptions(raw, { ffmpeg: true });
@@ -121,6 +127,18 @@ test("download args use pinned source IDs and cached metadata; only MP3 transcod
     "*12.25-27",
   );
   assert.ok(clip.includes("--force-keyframes-at-cuts"));
+  const audioClip = buildArgs(
+    config,
+    available.find((option) => option.type === "audio" && option.format === "mp3"),
+    "source.json",
+    "temp",
+    { startSeconds: 12, endSeconds: 27 },
+  );
+  assert.equal(
+    audioClip[audioClip.indexOf("--download-sections") + 1],
+    "*12-27",
+  );
+  assert.ok(audioClip.includes("--extract-audio"));
 });
 
 test("clip extraction failures explain unsupported sources and missing FFmpeg", () => {
@@ -160,6 +178,14 @@ test("browser cookies are opt-in and passed as a separate yt-dlp argument", () =
     buildOptions(raw).find((option) => option.quality === "1080p"),
     "source.json",
     "temp",
+  ).includes("--cookies-from-browser"));
+  assert.ok(!buildArgs(
+    config,
+    buildOptions(raw).find((option) => option.quality === "1080p"),
+    "source.json",
+    "temp",
+    undefined,
+    "instagram",
   ).includes("--cookies-from-browser"));
 });
 
@@ -226,7 +252,9 @@ test("metadata is deduplicated, cached, and bounded to two simultaneous lookups"
   assert.equal(calls, 2);
   gates.shift()();
   gates.shift()();
-  await Promise.all([first, duplicate, second]);
+  const [firstInfo] = await Promise.all([first, duplicate, second]);
+  assert.equal(firstInfo.public.creator, "Test channel");
+  assert.equal(firstInfo.public.viewCount, 42);
   await new Promise((resolve) => setImmediate(resolve));
   gates.shift()();
   await third;

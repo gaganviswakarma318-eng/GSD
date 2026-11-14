@@ -2,9 +2,9 @@ const { runProcess } = require('../utils/processes');
 const { ApiError, mediaError, validatePublicUrl } = require('../utils/errors');
 const { buildOptions, publicOption } = require('./formats');
 
-function commonArgs(config) {
+function commonArgs(config, { cookies = true } = {}) {
   const args = ['--ignore-config', '--no-plugin-dirs', '--no-playlist', '--no-warnings', '--no-colors', '--socket-timeout', '30', '--retries', '2', '--no-js-runtimes', '--js-runtimes', `node:${config.tools.node}`];
-  if (config.cookiesFromBrowser) args.push('--cookies-from-browser', config.cookiesFromBrowser);
+  if (cookies && config.cookiesFromBrowser) args.push('--cookies-from-browser', config.cookiesFromBrowser);
   return args;
 }
 
@@ -70,7 +70,9 @@ class MetadataService {
         const options = buildOptions(raw, this.availability);
         if (!options.length) throw new ApiError(this.availability.ffmpeg ? 'This source does not offer a downloadable audio or video format.' : 'This source needs FFmpeg for extraction or merging. Reinstall GSD or configure GSD_FFMPEG_PATH.', 422, 'NO_FORMATS');
         const thumbnail = typeof raw.thumbnail === 'string' && /^https?:\/\//i.test(raw.thumbnail) ? raw.thumbnail : '';
-        const value = { raw, options, public: { url, title: String(raw.title || 'Untitled media').slice(0, 500), thumbnail, duration: Number(raw.duration) || null, extractor: String(raw.extractor_key || raw.extractor || 'Media'), options: options.map(publicOption) } };
+        const viewCount = raw.view_count == null ? NaN : Number(raw.view_count);
+        const creator = raw.channel || raw.uploader || raw.creator || '';
+        const value = { raw, options, public: { url, title: String(raw.title || 'Untitled media').slice(0, 500), thumbnail, duration: Number(raw.duration) || null, extractor: String(raw.extractor_key || raw.extractor || 'Media'), creator: String(creator).slice(0, 300) || null, viewCount: Number.isFinite(viewCount) && viewCount >= 0 ? viewCount : null, options: options.map(publicOption) } };
         this.cache.delete(url);
         this.cache.set(url, { value, expires: Date.now() + this.config.metadataTtlMs });
         while (this.cache.size > this.config.maxMetadataEntries) this.cache.delete(this.cache.keys().next().value);
