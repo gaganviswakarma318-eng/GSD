@@ -3,7 +3,7 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs/promises');
 const path = require('node:path');
 const os = require('node:os');
-const { thumbnailSupport, processThumbnail } = require('../services/thumbnail');
+const { thumbnailSupport, processThumbnail } = require('../services/ffmpeg/thumbnail');
 
 const jpeg = Buffer.from([255, 216, 255, 224, 0, 1, 2, 3, 255, 217]);
 const png = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10, 1, 2, 3]);

@@ -1,4 +1,4 @@
-import { isTheme, useTheme } from "../hooks/useTheme";
+import { isTheme, useTheme } from "./useTheme";
 
 export function ThemeToggle() {
   const { theme, setTheme } = useTheme();

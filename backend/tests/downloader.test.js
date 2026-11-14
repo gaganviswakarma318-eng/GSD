@@ -3,7 +3,7 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs/promises");
 const path = require("node:path");
 const os = require("node:os");
-const { runDownload, parseProgress } = require("../services/downloader");
+const { runDownload, parseProgress } = require("../services/yt-dlp/downloader");
 
 async function progressFixture(t, { option, raw = {}, clipRange, ticks }) {
   const tempDir = await fs.mkdtemp(

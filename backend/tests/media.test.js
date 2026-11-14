@@ -1,8 +1,8 @@
 const test = require("node:test");
 const assert = require("node:assert/strict");
-const { buildOptions } = require("../services/formats");
-const { buildArgs, parseProgress } = require("../services/downloader");
-const { MetadataService } = require("../services/metadata");
+const { buildOptions } = require("../services/yt-dlp/formats");
+const { buildArgs, parseProgress } = require("../services/yt-dlp/downloader");
+const { MetadataService } = require("../services/yt-dlp/metadata");
 const {
   mediaError,
   validateUrl,

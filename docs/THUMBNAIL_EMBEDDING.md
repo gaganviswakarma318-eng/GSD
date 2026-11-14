@@ -39,19 +39,19 @@ Existing staged workspace changes were preserved. This list describes only the t
 
 | File | Change |
 | --- | --- |
-| `backend/services/thumbnail.js` | Container capability, cached-thumbnail retrieval, image validation/conversion, safe cover embedding and nonfatal recovery. |
-| `backend/services/formats.js` | Exposes artwork capability on each existing format option. |
-| `backend/services/downloader.js` | Runs artwork after media processing, reads structured yt-dlp postprocessor stages, removes source-info temporary file and returns artwork results. |
+| `backend/services/ffmpeg/thumbnail.js` | Container capability, cached-thumbnail retrieval, image validation/conversion, safe cover embedding and nonfatal recovery. |
+| `backend/services/yt-dlp/formats.js` | Exposes artwork capability on each existing format option. |
+| `backend/services/yt-dlp/downloader.js` | Runs artwork after media processing, reads structured yt-dlp postprocessor stages, removes source-info temporary file and returns artwork results. |
 | `backend/services/downloadManager.js` | Validates/persists settings across queue/retry, carries stages/warnings, copies desktop sidecars and tracks independent browser artifact delivery. |
-| `backend/server.js` | Adds the session-owned thumbnail delivery route using existing transfer protection. |
-| `frontend/src/types.ts` | Types format support, thumbnail settings and job artwork results. |
-| `frontend/src/api/client.ts` | Sends settings and builds the separate-thumbnail download action. |
-| `frontend/src/hooks/useDownloads.ts` | Threads settings into existing job creation. |
-| `frontend/src/App.tsx` | Connects controls, tool availability, thumbnail delivery and accessible completion warnings. |
-| `frontend/src/components/DownloadComposer.tsx` | Adds default-on embedding control, capability text and unsupported-format sidecar choice. |
-| `frontend/src/components/DownloadCard.tsx` | Shows processing stages, warnings, embedded-art result and sidecar save action/path. |
-| `frontend/src/components/QueuePanel.tsx` | Passes the thumbnail save action to existing download cards. |
-| `frontend/src/styles.css` | Styles the new controls and warnings using the existing design and theme. |
+| `backend/routes/downloads.js` | Adds the session-owned thumbnail delivery route using existing transfer protection. |
+| `frontend/src/shared/types.ts` | Types format support, thumbnail settings and job artwork results. |
+| `frontend/src/shared/services/mediaService.ts`, `frontend/src/features/download-queue/downloadService.ts` | Send settings and build the separate-thumbnail download action through focused services. |
+| `frontend/src/features/download-queue/useDownloads.ts` | Threads settings into existing job creation. |
+| `frontend/src/app/App.tsx` | Connects controls, tool availability, thumbnail delivery and accessible completion warnings. |
+| `frontend/src/shared/components/DownloadComposer.tsx` | Adds default-on embedding control, capability text and unsupported-format sidecar choice. |
+| `frontend/src/features/download-queue/DownloadCard.tsx` | Shows processing stages, warnings, embedded-art result and sidecar save action/path. |
+| `frontend/src/features/download-queue/QueuePanel.tsx` | Passes the thumbnail save action to existing download cards. |
+| `frontend/src/styles/workspace.css` | Styles the new controls and warnings using the existing design and theme. |
 | `backend/tests/thumbnail.test.js` | Exercises capability, safe processing, fallback, cancellation and cleanup. |
 | `backend/tests/downloadManager.test.js` | Checks settings, processing completion gate, independent sidecar delivery and destination collision behavior. |
 | `backend/tests/downloader.test.js` | Verifies finalization and structured merging/conversion stages without changing existing download-progress expectations. |

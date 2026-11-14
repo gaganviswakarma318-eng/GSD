@@ -4,7 +4,7 @@ const path = require('node:path');
 const crypto = require('node:crypto');
 const { EventEmitter } = require('node:events');
 const { ApiError } = require('../utils/errors');
-const { runDownload } = require('./downloader');
+const { runDownload } = require('./yt-dlp/downloader');
 
 const ACTIVE = new Set(['queued', 'downloading', 'processing']);
 function withAbort(promise, signal) {

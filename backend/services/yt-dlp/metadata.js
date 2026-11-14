@@ -1,5 +1,5 @@
-const { runProcess } = require('../utils/processes');
-const { ApiError, mediaError, validatePublicUrl } = require('../utils/errors');
+const { runProcess } = require('../../utils/processes');
+const { ApiError, mediaError, validatePublicUrl } = require('../../utils/errors');
 const { buildOptions, publicOption } = require('./formats');
 
 function commonArgs(config, { cookies = true } = {}) {

@@ -13,10 +13,10 @@ const { transformWithOxc } = require("vite");
 const sourceRoot = path.join(__dirname, "../src");
 const component = Promise.all(
   [
-    "config.ts",
-    "utils.ts",
-    "components/Icon.tsx",
-    "components/DownloadCard.tsx",
+    "shared/config.ts",
+    "shared/utils.ts",
+    "shared/components/Icon.tsx",
+    "features/download-queue/DownloadCard.tsx",
   ].map(async (relative) => {
     const filename = path.join(sourceRoot, relative);
     const transformed = await transformWithOxc(
@@ -65,7 +65,7 @@ const component = Promise.all(
     );
     return module.exports;
   }
-  return load(path.join(sourceRoot, "components/DownloadCard.tsx"))
+  return load(path.join(sourceRoot, "features/download-queue/DownloadCard.tsx"))
     .DownloadCard;
 });
 
@@ -261,7 +261,7 @@ test("completed and terminal jobs do not leave an active progressbar visible", a
 const hookSource =
   stripTypeScriptTypes(
     fs
-      .readFileSync(path.join(sourceRoot, "hooks/useDownloads.ts"), "utf8")
+      .readFileSync(path.join(sourceRoot, "features/download-queue/useDownloads.ts"), "utf8")
       .replace(/^import .*$/gm, ""),
     { mode: "strip" },
   ).replace(/^export /gm, "") + "\nmodule.exports = { useDownloads };";
@@ -282,7 +282,8 @@ function downloadHook(jobs) {
     hookSource,
     {
       module,
-      api: { jobs, eventsUrl: () => "/api/events" },
+      downloadsApi: { jobs, eventsUrl: () => "/api/events" },
+      instagramApi: { queue: async () => ({ jobs: [], errors: [] }) },
       errorMessage: (reason) => String(reason),
       useState(initial) {
         const index = cursor++;
@@ -340,7 +341,7 @@ function downloadHook(jobs) {
         removeEventListener() {},
       },
     },
-    { filename: path.join(sourceRoot, "hooks/useDownloads.ts") },
+    { filename: path.join(sourceRoot, "features/download-queue/useDownloads.ts") },
   );
   function flush() {
     for (let iterations = 0; dirty; iterations++) {

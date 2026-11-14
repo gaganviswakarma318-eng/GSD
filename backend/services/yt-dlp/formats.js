@@ -1,5 +1,5 @@
 const crypto = require('node:crypto');
-const { thumbnailSupport } = require('./thumbnail');
+const { thumbnailSupport } = require('../ffmpeg/thumbnail');
 
 function bytes(format) { return Number(format.filesize || format.filesize_approx) || undefined; }
 function audio(format) { return format.acodec && format.acodec !== 'none'; }

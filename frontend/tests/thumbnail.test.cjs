@@ -11,9 +11,10 @@ const { transformWithOxc } = require("vite");
 // the queued request are tested together without a browser or network fixture.
 const sourceRoot = path.join(__dirname, "../src");
 const sources = Promise.all([
-  "utils.ts",
-  "components/Icon.tsx",
-  "components/DownloadComposer.tsx",
+  "shared/utils.ts",
+  "shared/hooks/useClipRange.ts",
+  "shared/components/Icon.tsx",
+  "shared/components/DownloadComposer.tsx",
 ].map(async (relative) => {
   const filename = path.join(sourceRoot, relative);
   const transformed = await transformWithOxc(fs.readFileSync(filename, "utf8"), filename, {
@@ -85,9 +86,9 @@ async function composer(format, {
         if (id.endsWith("/hooks/useMediaInfo")) return {
           useMediaInfo: () => ({ info, loading: false, error: "", lookup() {}, clear() {} }),
         };
-        if (id.endsWith("/api/client"))
+        if (id.endsWith("/services/mediaService"))
           return {
-            api: { info: async (url) => ({ ...info, url }) },
+            mediaApi: { info: async (url) => ({ ...info, url }) },
           };
         if (id === "./MediaPreview") return { MediaPreview: () => null };
         if (!id.startsWith(".")) return require(id);
@@ -99,7 +100,7 @@ async function composer(format, {
     }, { filename });
     return module.exports;
   }
-  const Component = load(path.join(sourceRoot, "components/DownloadComposer.tsx")).DownloadComposer;
+  const Component = load(path.join(sourceRoot, "shared/components/DownloadComposer.tsx")).DownloadComposer;
   const queued = [];
   const tree = () => {
     cursor = 0;

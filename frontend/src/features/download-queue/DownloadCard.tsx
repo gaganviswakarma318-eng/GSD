@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { ACTIVE_STATUSES, isDesktop } from "../config";
-import type { DownloadJob } from "../types";
-import { errorMessage, formatBytes, formatDuration, formatEta } from "../utils";
-import { Icon } from "./Icon";
+import { ACTIVE_STATUSES, isDesktop } from "../../shared/config";
+import type { DownloadJob } from "../../shared/types";
+import { errorMessage, formatBytes, formatDuration, formatEta } from "../../shared/utils";
+import { Icon } from "../../shared/components/Icon";
 
 export interface DeliveryState {
   status: "saving" | "saved" | "sent" | "error";

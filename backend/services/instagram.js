@@ -1,6 +1,6 @@
 const { runProcess } = require("../utils/processes");
 const { ApiError, validatePublicUrl, validateUrl } = require("../utils/errors");
-const { buildOptions, publicOption } = require("./formats");
+const { buildOptions, publicOption } = require("./yt-dlp/formats");
 
 const INSTAGRAM_HOSTS = new Set([
   "instagram.com",

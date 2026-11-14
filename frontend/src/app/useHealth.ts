@@ -1,13 +1,13 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../api/client";
-import type { Health } from "../types";
-import { errorMessage } from "../utils";
+import { healthApi } from "./healthService";
+import type { Health } from "../shared/types";
+import { errorMessage } from "../shared/utils";
 export function useHealth() {
   const [health, setHealth] = useState<Health | null>(null);
   const [error, setError] = useState("");
   const check = useCallback(async () => {
     try {
-      setHealth(await api.health());
+      setHealth(await healthApi.health());
       setError("");
     } catch (reason) {
       setHealth(null);

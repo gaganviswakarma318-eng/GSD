@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import type { ChangeEvent, FormEvent } from "react";
-import { api } from "../api/client";
+import { mediaApi } from "../services/mediaService";
 import { isDesktop } from "../config";
 import { useMediaInfo } from "../hooks/useMediaInfo";
+import { useClipRange } from "../hooks/useClipRange";
 import type {
   ClipRange,
   DownloadJob,
@@ -15,14 +16,13 @@ import {
   errorMessage,
   formatBytes,
   formatTimecode,
-  parseTimecode,
   suggestedFilename,
   validMediaUrl,
 } from "../utils";
 import { Icon } from "./Icon";
 import { MediaPreview } from "./MediaPreview";
 
-interface Props {
+export interface DownloadComposerProps {
   unavailable: boolean;
   ffmpegAvailable: boolean | null;
   mode?: "full" | "clip";
@@ -50,7 +50,7 @@ export function DownloadComposer({
   pageTitle,
   onReadyChange,
   onQueue,
-}: Props) {
+}: DownloadComposerProps) {
   const [url, setUrl] = useState("");
   const [multipleMode, setMultipleMode] = useState(false);
   const [batchUrls, setBatchUrls] = useState<string[]>([]);
@@ -66,13 +66,12 @@ export function DownloadComposer({
   const [notice, setNotice] = useState("");
   const [embedThumbnail, setEmbedThumbnail] = useState(true);
   const [thumbnailSidecar, setThumbnailSidecar] = useState(false);
-  const [clipStart, setClipStart] = useState("00:00");
-  const [clipEnd, setClipEnd] = useState("00:30");
   const input = useRef<HTMLInputElement>(null);
   const textarea = useRef<HTMLTextAreaElement>(null);
   const fileInput = useRef<HTMLInputElement>(null);
   const { info, loading, error, lookup, clear } = useMediaInfo();
   const clipMode = mode === "clip";
+  const clip = useClipRange(info, clipMode);
   const idPrefix = clipMode ? "clip-" : "";
   const formId = clipMode ? "clip-download-form" : "download-form";
   const options =
@@ -82,29 +81,6 @@ export function DownloadComposer({
   const qualities = options.filter((item) => item.format === selected?.format);
   const thumbnailSupported = Boolean(selected?.thumbnailSupport?.supported);
   const canEmbedThumbnail = thumbnailSupported && ffmpegAvailable === true;
-  const clipStartSeconds = parseTimecode(clipStart);
-  const clipEndSeconds = parseTimecode(clipEnd);
-  const clipRangeError = !clipMode || !info
-    ? ""
-    : !Number.isFinite(info.duration) || !info.duration || info.duration < 1
-      ? "This source does not report a usable duration, so a clip cannot be validated."
-      : clipStartSeconds === null
-        ? "Enter a start time as MM:SS or HH:MM:SS."
-        : clipEndSeconds === null
-          ? "Enter an end time as MM:SS or HH:MM:SS."
-          : clipStartSeconds >= clipEndSeconds
-            ? "The end time must be later than the start time."
-            : clipEndSeconds > info.duration
-              ? "The clip end must be within the video duration."
-              : "";
-  const clipRange =
-    clipMode &&
-    !clipRangeError &&
-    clipStartSeconds !== null &&
-    clipEndSeconds !== null
-      ? { startSeconds: clipStartSeconds, endSeconds: clipEndSeconds }
-      : undefined;
-  const clipSliderMax = Math.max(1, Math.floor(info?.duration || 1));
   const draftUrls = url
     .split(/\r?\n/)
     .map((item) => item.trim())
@@ -113,7 +89,7 @@ export function DownloadComposer({
   const isReady = !unavailable && !busy && (
     multipleMode && !clipMode
       ? batchUrls.length > 0 || validDraft
-      : Boolean(info && selected && !loading && (!clipMode || (clipRange && ffmpegAvailable === true)))
+      : Boolean(info && selected && !loading && (!clipMode || (clip.range && ffmpegAvailable === true)))
   );
 
   useEffect(() => {
@@ -125,12 +101,6 @@ export function DownloadComposer({
     if (first) {
       setType(first.type);
       setOptionId(first.id);
-    }
-    if (clipMode && info.duration && Number.isFinite(info.duration)) {
-      setClipStart(formatTimecode(0));
-      setClipEnd(
-        formatTimecode(Math.max(1, Math.min(30, Math.floor(info.duration)))),
-      );
     }
     // Reset the selection when a new media source arrives, not while choosing its quality.
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -273,7 +243,7 @@ export function DownloadComposer({
     let added = 0;
     for (const candidateUrl of candidateUrls) {
       try {
-        const candidateInfo = await api.info(
+        const candidateInfo = await mediaApi.info(
           candidateUrl,
           new AbortController().signal,
         );
@@ -334,7 +304,7 @@ export function DownloadComposer({
         return;
       }
       if (!info || !selected || loading) return;
-      if (clipMode && (!clipRange || ffmpegAvailable !== true)) return;
+      if (clipMode && (!clip.range || ffmpegAvailable !== true)) return;
       let chosen = destination;
       if (window.gsd && !chosen) {
         const picked = await window.gsd.chooseDirectory();
@@ -350,7 +320,7 @@ export function DownloadComposer({
           embedThumbnail: canEmbedThumbnail && embedThumbnail,
           thumbnailSidecar: !thumbnailSupported && thumbnailSidecar,
         },
-        clipRange,
+        clip.range,
       );
       setNotice(
         clipMode
@@ -619,11 +589,11 @@ export function DownloadComposer({
                       type="text"
                       inputMode="numeric"
                       placeholder="MM:SS"
-                      value={clipStart}
-                      aria-invalid={Boolean(clipRangeError)}
+                      value={clip.start}
+                      aria-invalid={Boolean(clip.error)}
                       aria-describedby="clip-range-help"
                       onChange={(event) => {
-                        setClipStart(event.target.value);
+                        clip.setStart(event.target.value);
                         setActionError("");
                       }}
                     />
@@ -638,11 +608,11 @@ export function DownloadComposer({
                       type="text"
                       inputMode="numeric"
                       placeholder="MM:SS"
-                      value={clipEnd}
-                      aria-invalid={Boolean(clipRangeError)}
+                      value={clip.end}
+                      aria-invalid={Boolean(clip.error)}
                       aria-describedby="clip-range-help"
                       onChange={(event) => {
-                        setClipEnd(event.target.value);
+                        clip.setEnd(event.target.value);
                         setActionError("");
                       }}
                     />
@@ -650,10 +620,10 @@ export function DownloadComposer({
                   <div className="clip-duration-summary">
                     <span className="field-label">Selected duration</span>
                     <strong>
-                      {clipStartSeconds !== null &&
-                      clipEndSeconds !== null &&
-                      clipEndSeconds > clipStartSeconds
-                        ? formatTimecode(clipEndSeconds - clipStartSeconds)
+                      {clip.startSeconds !== null &&
+                      clip.endSeconds !== null &&
+                      clip.endSeconds > clip.startSeconds
+                        ? formatTimecode(clip.endSeconds - clip.startSeconds)
                         : "—"}
                     </strong>
                   </div>
@@ -661,17 +631,17 @@ export function DownloadComposer({
                 <div className="clip-slider-fields">
                   <label>
                     <span>
-                      Start point · {formatTimecode(clipStartSeconds ?? 0)}
+                      Start point · {formatTimecode(clip.startSeconds ?? 0)}
                     </span>
                     <input
                       type="range"
                       min="0"
-                      max={clipSliderMax}
+                      max={clip.sliderMax}
                       step="1"
-                      value={Math.min(clipSliderMax, clipStartSeconds ?? 0)}
+                      value={Math.min(clip.sliderMax, clip.startSeconds ?? 0)}
                       aria-label="Clip start point"
                       onChange={(event) => {
-                        setClipStart(formatTimecode(Number(event.target.value)));
+                        clip.setStart(formatTimecode(Number(event.target.value)));
                         setActionError("");
                       }}
                     />
@@ -679,20 +649,20 @@ export function DownloadComposer({
                   <label>
                     <span>
                       End point ·{" "}
-                      {formatTimecode(clipEndSeconds ?? clipSliderMax)}
+                      {formatTimecode(clip.endSeconds ?? clip.sliderMax)}
                     </span>
                     <input
                       type="range"
                       min="0"
-                      max={clipSliderMax}
+                      max={clip.sliderMax}
                       step="1"
                       value={Math.min(
-                        clipSliderMax,
-                        clipEndSeconds ?? clipSliderMax,
+                        clip.sliderMax,
+                        clip.endSeconds ?? clip.sliderMax,
                       )}
                       aria-label="Clip end point"
                       onChange={(event) => {
-                        setClipEnd(formatTimecode(Number(event.target.value)));
+                        clip.setEnd(formatTimecode(Number(event.target.value)));
                         setActionError("");
                       }}
                     />
@@ -700,12 +670,12 @@ export function DownloadComposer({
                 </div>
                 <p
                   className={
-                    clipRangeError ? "inline-error clip-range-error" : "format-note"
+                    clip.error ? "inline-error clip-range-error" : "format-note"
                   }
                   id="clip-range-help"
-                  role={clipRangeError ? "alert" : undefined}
+                  role={clip.error ? "alert" : undefined}
                 >
-                  {clipRangeError ||
+                  {clip.error ||
                     "Use the sliders or enter a precise time. Cut points use one-second accuracy."}
                 </p>
               </>

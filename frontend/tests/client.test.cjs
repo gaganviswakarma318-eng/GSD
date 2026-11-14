@@ -6,15 +6,30 @@ const vm = require("node:vm");
 const { stripTypeScriptTypes } = require("node:module");
 
 // Exercise the actual TypeScript client with controlled browser primitives.
+const sourceFiles = [
+  "../src/shared/api/request.ts",
+  "../src/shared/services/mediaService.ts",
+  "../src/shared/services/instagramService.ts",
+  "../src/features/download-queue/downloadService.ts",
+  "../src/app/healthService.ts",
+];
 const source =
   "const API_BASE = '/api';\n" +
   stripTypeScriptTypes(
-    fs
-      .readFileSync(path.join(__dirname, "../src/api/client.ts"), "utf8")
-      .replace(/^import .*$/gm, ""),
+    sourceFiles
+      .map((file) => fs.readFileSync(path.join(__dirname, file), "utf8"))
+      .join("\n")
+      .replace(/^import[\s\S]*?from [\"'][^\"']+[\"'];?\s*/gm, ""),
     { mode: "strip" },
   ).replace(/^export /gm, "") +
-  "\nmodule.exports = { api, saveToHandle, downloadInBrowser, downloadThumbnailInBrowser };";
+  `\nconst api = {
+    health: healthApi.health,
+    info: mediaApi.info,
+    instagramInfo: instagramApi.info,
+    instagramQueue: instagramApi.queue,
+    ...downloadsApi,
+  };
+  module.exports = { api, saveToHandle, downloadInBrowser, downloadThumbnailInBrowser };`;
 function client(fetch, document) {
   const module = { exports: {} };
   vm.runInNewContext(source, {

@@ -1,7 +1,8 @@
 import { useCallback, useEffect, useState } from "react";
-import { api } from "../api/client";
-import type { ClipRange, DownloadJob, InstagramQueueResult, InstagramSelection, ThumbnailSettings } from "../types";
-import { errorMessage } from "../utils";
+import { downloadsApi } from "./downloadService";
+import { instagramApi } from "../../shared/services/instagramService";
+import type { ClipRange, DownloadJob, InstagramQueueResult, InstagramSelection, ThumbnailSettings } from "../../shared/types";
+import { errorMessage } from "../../shared/utils";
 
 function newerJob(
   existing: DownloadJob | undefined,
@@ -43,7 +44,7 @@ export function useDownloads() {
   }, []);
   const refresh = useCallback(async () => {
     try {
-      const snapshot = await api.jobs();
+      const snapshot = await downloadsApi.jobs();
       setJobs((previous) => mergeSnapshot(previous, snapshot));
       setError("");
     } catch (reason) {
@@ -59,7 +60,7 @@ export function useDownloads() {
     if (loading) return;
     // One owner-wide connection avoids exhausting browsers' per-host HTTP/1.1 sockets.
     // Each reconnect receives a fresh complete snapshot, including completed file delivery.
-    const source = new EventSource(api.eventsUrl());
+    const source = new EventSource(downloadsApi.eventsUrl());
     source.onmessage = (event) => {
       try {
         const snapshot: (DownloadJob & { expired?: boolean }) | DownloadJob[] =
@@ -88,7 +89,7 @@ export function useDownloads() {
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [refresh]);
   const create = async (url: string, optionId: string, saveToken?: string, settings?: ThumbnailSettings, clipRange?: ClipRange) => {
-    const job = await api.create(url, optionId, saveToken, settings, clipRange);
+    const job = await downloadsApi.create(url, optionId, saveToken, settings, clipRange);
     upsert(job);
     return job;
   };
@@ -97,16 +98,16 @@ export function useDownloads() {
     items: InstagramSelection[],
     saveToken?: string,
   ): Promise<InstagramQueueResult> => {
-    const result = await api.instagramQueue(url, items, saveToken);
+    const result = await instagramApi.queue(url, items, saveToken);
     result.jobs.forEach(upsert);
     return result;
   };
   const cancel = async (id: string) => {
-    const job = await api.cancel(id);
+    const job = await downloadsApi.cancel(id);
     upsert(job);
   };
   const retry = async (id: string) => {
-    const job = await api.retry(id);
+    const job = await downloadsApi.retry(id);
     upsert(job);
   };
   return {

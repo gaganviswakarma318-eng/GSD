@@ -1,9 +1,9 @@
 const fs = require('node:fs/promises');
 const path = require('node:path');
-const { runProcess } = require('../utils/processes');
-const { mediaError } = require('../utils/errors');
+const { runProcess } = require('../../utils/processes');
+const { mediaError } = require('../../utils/errors');
 const { commonArgs } = require('./metadata');
-const { processThumbnail } = require('./thumbnail');
+const { processThumbnail } = require('../ffmpeg/thumbnail');
 
 function numeric(value) { if (value === null || value === undefined || value === '') return null; const number = Number(value); return Number.isFinite(number) && number >= 0 ? number : null; }
 

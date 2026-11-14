@@ -108,13 +108,14 @@ If Electron is already extracted and the build environment cannot use its defaul
 
 ## Structure
 
-- `frontend/src/components/`: accessible media form, preview and download rows.
-- `frontend/src/workspace.css`: responsive workspace design system and theme surfaces.
-- `frontend/src/hooks/`: metadata and download state, SSE updates and recovery.
-- `frontend/src/api/`: typed HTTP calls and streaming/file delivery.
-- `backend/server.js`: Express API, session ownership, static interface and startup/shutdown.
+- `frontend/src/app/`: workspace entry, navigation, health state and page composition.
+- `frontend/src/features/`: Universal Downloader, Clip Studio, Instagram Downloader, download queue, dashboard and settings modules.
+- `frontend/src/shared/`: reusable form/preview/icon components, API transport and media services, hooks, types and utilities.
+- `frontend/src/styles/`: global design foundations and workspace styling; feature styles live beside their feature.
+- `backend/server.js`: service startup/shutdown and HTTP lifecycle; `backend/app.js` assembles middleware, routes and static serving.
+- `backend/routes/` and `backend/middleware/`: endpoint groups and localhost/session/origin protections.
 - `backend/config.js`: paths, process limits and environment configuration.
-- `backend/services/`: bounded job manager, metadata cache, actual source formats and yt-dlp execution.
+- `backend/services/`: shared job manager and Instagram extraction, with yt-dlp metadata/download/format code under `yt-dlp/` and artwork processing under `ffmpeg/`.
 - `backend/utils/`: process-tree termination, validation and errors.
 - `backend/tests/`: queue, retry, cancellation, lifecycle and API regressions.
 - `electron/`: isolated preload bridge, native folder grants and desktop lifecycle.

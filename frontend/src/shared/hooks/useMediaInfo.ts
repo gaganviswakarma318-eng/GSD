@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from "react";
-import { api } from "../api/client";
+import { mediaApi } from "../services/mediaService";
 import { METADATA_CACHE_MS } from "../config";
 import type { MediaInfo } from "../types";
 import { errorMessage, validMediaUrl } from "../utils";
@@ -44,7 +44,7 @@ export function useMediaInfo() {
     controller.current = next;
     setLoading(true);
     try {
-      const result = await api.info(url, next.signal);
+      const result = await mediaApi.info(url, next.signal);
       if (next.signal.aborted) return;
       cache.set(url, { at: Date.now(), info: result });
       if (cache.size > 20) cache.delete(cache.keys().next().value as string);

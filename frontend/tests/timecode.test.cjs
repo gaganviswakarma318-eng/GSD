@@ -7,7 +7,7 @@ const { stripTypeScriptTypes } = require("node:module");
 
 const source =
   stripTypeScriptTypes(
-    fs.readFileSync(path.join(__dirname, "../src/utils.ts"), "utf8"),
+    fs.readFileSync(path.join(__dirname, "../src/shared/utils.ts"), "utf8"),
     { mode: "strip" },
   ).replace(/^export /gm, "") +
   "\nmodule.exports = { formatTimecode, parseTimecode };";

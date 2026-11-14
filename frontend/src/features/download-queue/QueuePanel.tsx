@@ -1,8 +1,8 @@
 import { useEffect, useState } from "react";
-import { ACTIVE_STATUSES } from "../config";
-import type { DownloadJob } from "../types";
+import { ACTIVE_STATUSES } from "../../shared/config";
+import type { DownloadJob } from "../../shared/types";
 import { DownloadCard, type DeliveryState } from "./DownloadCard";
-import { Icon } from "./Icon";
+import { Icon } from "../../shared/components/Icon";
 type QueueFilter = "all" | "active" | "done" | "failed";
 interface Props {
   jobs: DownloadJob[];

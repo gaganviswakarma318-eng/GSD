@@ -3,16 +3,24 @@ import {
   downloadInBrowser,
   downloadThumbnailInBrowser,
   saveToHandle,
-} from "./api/client";
-import { DownloadComposer } from "./components/DownloadComposer";
-import type { DeliveryState } from "./components/DownloadCard";
-import { Icon, type IconName } from "./components/Icon";
-import { InstagramDownloader } from "./components/InstagramDownloader";
-import { QueuePanel } from "./components/QueuePanel";
-import { ThemeToggle } from "./components/ThemeToggle";
-import { ACTIVE_STATUSES, isDesktop } from "./config";
-import { useDownloads } from "./hooks/useDownloads";
-import { useHealth } from "./hooks/useHealth";
+} from "../features/download-queue/downloadService";
+import { ClipDownloader } from "../features/clip-downloader/ClipDownloader";
+import { UniversalDownloader } from "../features/universal-downloader/UniversalDownloader";
+import type { DeliveryState } from "../features/download-queue/DownloadCard";
+import { QueuePage } from "../features/download-queue/QueuePage";
+import { DashboardPage } from "../features/dashboard/DashboardPage";
+import { SettingsPage } from "../features/settings/SettingsPage";
+import { Icon } from "../shared/components/Icon";
+import { InstagramDownloader } from "../features/instagram-downloader/InstagramDownloader";
+import { QueuePanel } from "../features/download-queue/QueuePanel";
+import { ACTIVE_STATUSES, isDesktop } from "../shared/config";
+import { useDownloads } from "../features/download-queue/useDownloads";
+import { useHealth } from "./useHealth";
+import {
+  navigationSections,
+  pageForPath,
+  pageTitles,
+} from "./navigation";
 import type {
   ClipRange,
   DownloadJob,
@@ -21,84 +29,8 @@ import type {
   SaveDestination,
   SaveFileHandle,
   ThumbnailSettings,
-} from "./types";
-import { errorMessage } from "./utils";
-
-type WorkspacePage =
-  | "home"
-  | "universal"
-  | "instagram"
-  | "clip"
-  | "processing"
-  | "library"
-  | "settings";
-
-interface NavigationItem {
-  label: string;
-  href?: string;
-  icon: IconName;
-  page?: WorkspacePage;
-}
-
-interface NavigationSection {
-  label: string;
-  items: NavigationItem[];
-}
-
-const navigationSections: NavigationSection[] = [
-  {
-    label: "DOWNLOAD",
-    items: [
-      { label: "Home", href: "/", icon: "home", page: "home" },
-      {
-        label: "Universal Downloader",
-        href: "/universal",
-        icon: "globe",
-        page: "universal",
-      },
-      {
-        label: "Instagram Downloader",
-        href: "/instagram",
-        icon: "instagram",
-        page: "instagram",
-      },
-    ],
-  },
-  {
-    label: "CREATE & PROCESS",
-    items: [
-      { label: "Clip Studio", href: "/clip", icon: "scissors", page: "clip" },
-      { label: "AI Summary", icon: "summary" },
-      { label: "Subtitles", icon: "subtitles" },
-    ],
-  },
-  {
-    label: "MANAGE",
-    items: [
-      { label: "Settings", href: "/settings", icon: "settings", page: "settings" },
-    ],
-  },
-];
-
-const pageForPath = (path: string): WorkspacePage => {
-  if (path === "/universal") return "universal";
-  if (path === "/instagram") return "instagram";
-  if (path === "/clip") return "clip";
-  if (path === "/processing") return "processing";
-  if (path === "/library") return "library";
-  if (path === "/settings") return "settings";
-  return "home";
-};
-
-const pageTitles: Record<WorkspacePage, string> = {
-  home: "Home",
-  universal: "Universal Downloader",
-  instagram: "Instagram Downloader",
-  clip: "Clip Studio",
-  processing: "Processing",
-  library: "Library",
-  settings: "Settings",
-};
+} from "../shared/types";
+import { errorMessage } from "../shared/utils";
 
 function initialSidebarCollapsed() {
   try {
@@ -427,55 +359,33 @@ export default function App() {
             </div>
           )}
           {page === "home" && (
-            <div className="dashboard-page">
-              <section className="dashboard-welcome">
-                <span className="eyebrow">YOUR MEDIA, IN ONE PLACE</span>
-                <h2>A calmer way to collect and manage media.</h2>
-                <p>
-                  Choose a workflow to get started. Downloads and their live
-                  progress stay together in your workspace.
-                </p>
-              </section>
-              <section className="dashboard-stats" aria-label="Download overview">
-                <StatCard label="In progress" value={activeCount} icon="processing" />
-                <StatCard label="Completed" value={completedCount} icon="check" />
-                <StatCard label="Needs attention" value={failedCount} icon="retry" />
-                <StatCard label="All downloads" value={downloads.jobs.length} icon="download" />
-              </section>
-              <section className="quick-actions" aria-label="Start a workflow">
-                <a href="/universal">
-                  <span><Icon name="globe" size={19} /></span>
-                  <strong>Universal Downloader</strong>
-                  <small>Use yt-dlp with a supported source</small>
-                  <Icon className="quick-action-arrow" name="chevron" size={16} />
-                </a>
-                <a href="/clip">
-                  <span><Icon name="scissors" size={19} /></span>
-                  <strong>Clip Studio</strong>
-                  <small>Preview a video and choose a segment</small>
-                  <Icon className="quick-action-arrow" name="chevron" size={16} />
-                </a>
-              </section>
-              <QueuePanel
-                {...queueProps}
-                title="Recent downloads"
-                initialFilter="all"
-              />
-            </div>
+            <DashboardPage
+              activeCount={activeCount}
+              completedCount={completedCount}
+              failedCount={failedCount}
+              totalCount={downloads.jobs.length}
+              queueProps={queueProps}
+            />
           )}
           {(page === "universal" || page === "clip") && (
             <div className="workspace-grid">
-              <DownloadComposer
-                key={page}
-                mode={page === "clip" ? "clip" : "full"}
-                pageTitle={page === "clip" ? "Create a clip" : "Download media"}
-                ffmpegAvailable={health ? health.tools.ffmpeg : null}
-                unavailable={Boolean(
-                  healthError || (health && !health.tools.ytDlp),
-                )}
-                onReadyChange={setFormReady}
-                onQueue={queue}
-              />
+              {page === "clip" ? (
+                <ClipDownloader
+                  key="clip"
+                  ffmpegAvailable={health ? health.tools.ffmpeg : null}
+                  unavailable={Boolean(healthError || (health && !health.tools.ytDlp))}
+                  onReadyChange={setFormReady}
+                  onQueue={queue}
+                />
+              ) : (
+                <UniversalDownloader
+                  key="universal"
+                  ffmpegAvailable={health ? health.tools.ffmpeg : null}
+                  unavailable={Boolean(healthError || (health && !health.tools.ytDlp))}
+                  onReadyChange={setFormReady}
+                  onQueue={queue}
+                />
+              )}
               <QueuePanel
                 {...queueProps}
                 title={page === "clip" ? "Clip & media queue" : "Download queue"}
@@ -497,71 +407,29 @@ export default function App() {
             </div>
           )}
           {page === "processing" && (
-            <section className="queue-page">
-              <div className="page-intro">
-                <span className="eyebrow">LIVE QUEUE</span>
-                <p>Active downloads and their real-time progress.</p>
-              </div>
-              <QueuePanel
-                {...queueProps}
-                title="Active downloads"
-                initialFilter="active"
-              />
-            </section>
+            <QueuePage
+              eyebrow="LIVE QUEUE"
+              description="Active downloads and their real-time progress."
+              title="Active downloads"
+              initialFilter="active"
+              queueProps={queueProps}
+            />
           )}
           {page === "library" && (
-            <section className="queue-page">
-              <div className="page-intro">
-                <span className="eyebrow">YOUR DOWNLOAD HISTORY</span>
-                <p>Completed files remain available here for delivery or retry.</p>
-              </div>
-              <QueuePanel
-                {...queueProps}
-                title="Completed downloads"
-                initialFilter="done"
-              />
-            </section>
+            <QueuePage
+              eyebrow="YOUR DOWNLOAD HISTORY"
+              description="Completed files remain available here for delivery or retry."
+              title="Completed downloads"
+              initialFilter="done"
+              queueProps={queueProps}
+            />
           )}
           {page === "settings" && (
-            <section className="settings-page">
-              <div className="page-intro">
-                <span className="eyebrow">PREFERENCES</span>
-                <p>Adjust your appearance and review the media tools.</p>
-              </div>
-              <section className="settings-card panel">
-                <div>
-                  <span className="settings-card-icon"><Icon name="sun" size={19} /></span>
-                  <div>
-                    <h3>Appearance</h3>
-                    <p>Choose light, dark, or black.</p>
-                  </div>
-                </div>
-                <ThemeToggle />
-              </section>
-              <section className="settings-card settings-tools panel">
-                <div className="settings-card-heading">
-                  <span className="settings-card-icon"><Icon name="processing" size={19} /></span>
-                  <div>
-                    <h3>Media tools</h3>
-                    <p>Runtime availability reported by the local GSD service.</p>
-                  </div>
-                  <button
-                    className="text-button"
-                    type="button"
-                    onClick={() => void check()}
-                  >
-                    Refresh <Icon name="retry" size={14} />
-                  </button>
-                </div>
-                <ToolStatus label="yt-dlp" available={health?.tools.ytDlp} />
-                <ToolStatus label="FFmpeg" available={health?.tools.ffmpeg} />
-                {healthError && <p className="inline-error" role="alert">{healthError}</p>}
-              </section>
-              <p className="settings-footnote">
-                Downloads are processed by GSD’s local service. Unavailable
-                modules are not simulated.
-              </p>
-            </section>
+            <SettingsPage
+              health={health}
+              healthError={healthError}
+              onCheck={() => void check()}
+            />
           )}
           {showComposer && (
             <div className="workspace-action-dock">
@@ -596,46 +464,6 @@ export default function App() {
       >
         {announcement}
       </div>
-    </div>
-  );
-}
-
-function StatCard({
-  label,
-  value,
-  icon,
-}: {
-  label: string;
-  value: number;
-  icon: IconName;
-}) {
-  return (
-    <article className="stat-card">
-      <span className="stat-icon"><Icon name={icon} size={17} /></span>
-      <span className="stat-value">{value}</span>
-      <span className="stat-label">{label}</span>
-    </article>
-  );
-}
-
-function ToolStatus({
-  label,
-  available,
-}: {
-  label: string;
-  available?: boolean;
-}) {
-  return (
-    <div className="tool-status-row">
-      <span>{label}</span>
-      <span className={`tool-status ${available ? "available" : ""}`}>
-        <i />
-        {available === undefined
-          ? "Checking"
-          : available
-            ? "Available"
-            : "Unavailable"}
-      </span>
     </div>
   );
 }

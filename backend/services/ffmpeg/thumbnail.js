@@ -2,7 +2,7 @@ const fs = require('node:fs/promises');
 const { constants } = require('node:fs');
 const path = require('node:path');
 const crypto = require('node:crypto');
-const { runProcess } = require('../utils/processes');
+const { runProcess } = require('../../utils/processes');
 
 const METHODS = {
   mp3: 'id3v2', m4a: 'mp4', m4b: 'mp4', mp4: 'mp4', m4v: 'mp4',
@@ -154,7 +154,7 @@ async function processThumbnail({ config, raw, option, filePath, tempDir, infoPa
     scratch = await fs.mkdtemp(path.join(tempDir, 'thumbnail-'));
     // Reuse the same extracted info JSON as the media download. yt-dlp selects
     // its highest ranked available image and falls back when a CDN image fails.
-    const { commonArgs } = require('./metadata');
+    const { commonArgs } = require('../yt-dlp/metadata');
     await execute(config, config.tools.ytDlp, [
       ...commonArgs(config), '--skip-download', '--write-thumbnail', '--no-write-playlist-metafiles',
       '--paths', scratch, '--output', 'cover.%(ext)s', '--output', 'thumbnail:cover.%(ext)s',

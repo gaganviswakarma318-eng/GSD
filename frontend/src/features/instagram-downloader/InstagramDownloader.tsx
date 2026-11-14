@@ -1,16 +1,16 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import type { FormEvent } from "react";
-import { api } from "../api/client";
-import { isDesktop } from "../config";
+import { instagramApi } from "../../shared/services/instagramService";
+import { isDesktop } from "../../shared/config";
 import type {
   InstagramInfo,
   InstagramMediaItem,
   InstagramSelection,
   InstagramQueueResult,
   SaveDestination,
-} from "../types";
-import { errorMessage, formatDuration } from "../utils";
-import { Icon } from "./Icon";
+} from "../../shared/types";
+import { errorMessage, formatDuration } from "../../shared/utils";
+import { Icon } from "../../shared/components/Icon";
 
 interface Props {
   unavailable: boolean;
@@ -104,7 +104,7 @@ export function InstagramDownloader({ unavailable, onQueue }: Props) {
     request.current = controller;
     setLoading(true);
     try {
-      const result = await api.instagramInfo(value, controller.signal);
+      const result = await instagramApi.info(value, controller.signal);
       setUrl(result.url);
       setInfo(result);
       setSelectedIds(
