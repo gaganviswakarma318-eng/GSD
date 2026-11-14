@@ -46,7 +46,7 @@ export function MediaPreview({
       </div>
     );
   return (
-    <div className="media-preview">
+    <section className="media-preview media-preview-card" aria-label="Media preview">
       <div className="preview-image">
         {info.thumbnail && brokenImage !== info.thumbnail ? (
           <img
@@ -67,10 +67,41 @@ export function MediaPreview({
           {info.extractor || "Media source"}
         </span>
         <h3>{info.title}</h3>
+        <div className="media-meta">
+          {info.creator && <span>{info.creator}</span>}
+          {info.viewCount != null && (
+            <span>{new Intl.NumberFormat().format(info.viewCount)} views</span>
+          )}
+          {info.duration != null && (
+            <span>{formatDuration(info.duration)}</span>
+          )}
+        </div>
         <span className="ready-label">
-          <Icon name="check" size={13} /> Ready to download
+          <Icon name="check" size={13} /> Source checked
         </span>
+        <div className="available-formats" aria-label="Available video resolutions">
+          {[...new Set(
+            info.options
+              .filter((option) => option.type === "video")
+              .map((option) => option.quality),
+          )]
+            .slice(0, 5)
+            .map((quality) => (
+              <span className="format-chip" key={quality}>{quality}</span>
+            ))}
+        </div>
+        <details className="media-details">
+          <summary>
+            Media details <Icon name="chevron" size={14} />
+          </summary>
+          <dl>
+            <div><dt>Source</dt><dd>{info.extractor || "Media source"}</dd></div>
+            {info.creator && <div><dt>Creator</dt><dd>{info.creator}</dd></div>}
+            <div><dt>Duration</dt><dd>{info.duration != null ? formatDuration(info.duration) : "Not provided"}</dd></div>
+            <div><dt>Formats found</dt><dd>{info.options.length}</dd></div>
+          </dl>
+        </details>
       </div>
-    </div>
+    </section>
   );
 }

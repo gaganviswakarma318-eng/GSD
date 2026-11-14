@@ -5,7 +5,7 @@ const path = require("node:path");
 const os = require("node:os");
 const { runDownload, parseProgress } = require("../services/downloader");
 
-async function progressFixture(t, { option, raw = {}, ticks }) {
+async function progressFixture(t, { option, raw = {}, clipRange, ticks }) {
   const tempDir = await fs.mkdtemp(
     path.join(os.tmpdir(), "gsd-progress-test-"),
   );
@@ -15,6 +15,7 @@ async function progressFixture(t, { option, raw = {}, ticks }) {
     config: { tools: { ytDlp: "fixture", node: process.execPath } },
     raw,
     option,
+    clipRange,
     embedThumbnail: false,
     tempDir,
     onProgress: (event) => events.push(event),
@@ -105,6 +106,28 @@ test("unknown totals do not report a fabricated zero-second ETA", async (t) => {
   assert.equal(event.etaSeconds, null);
   assert.equal(event.speedBytes, 25);
   assert.equal(event.downloadedBytes, 50);
+});
+
+test("clip progress estimates bytes from the selected portion of the source", async (t) => {
+  const [event] = await progressFixture(t, {
+    option: { selector: "v", estimatedSize: 1000 },
+    raw: {
+      duration: 100,
+      formats: [{ format_id: "v", filesize: 1000 }],
+    },
+    clipRange: { startSeconds: 20, endSeconds: 40 },
+    ticks: [
+      {
+        downloaded_bytes: 50,
+        total_bytes: 0,
+        total_bytes_estimate: 0,
+        format_id: "v",
+        status: "downloading",
+      },
+    ],
+  });
+  assert.equal(event.totalBytes, 200);
+  assert.equal(event.progress, 25);
 });
 
 test("merged progress waits for every stream total and retains completed stream bytes", async (t) => {

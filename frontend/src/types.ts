@@ -1,4 +1,12 @@
-export type MediaType = "audio" | "video";
+export type MediaType = "audio" | "video" | "image";
+export type InstagramContentType =
+  | "photo"
+  | "carousel"
+  | "video"
+  | "reel"
+  | "story"
+  | "highlight"
+  | "profile";
 export interface MediaOption {
   id: string;
   type: MediaType;
@@ -17,13 +25,44 @@ export interface ThumbnailSettings {
   embedThumbnail?: boolean;
   thumbnailSidecar?: boolean;
 }
+export interface ClipRange {
+  startSeconds: number;
+  endSeconds: number;
+}
 export interface MediaInfo {
   url: string;
   title: string;
   thumbnail: string | null;
   duration: number | null;
   extractor: string;
+  creator?: string | null;
+  viewCount?: number | null;
   options: MediaOption[];
+}
+export interface InstagramMediaItem {
+  id: string;
+  index: number;
+  kind: "image" | "video";
+  title: string;
+  thumbnail: string | null;
+  duration: number | null;
+  options: MediaOption[];
+  error: string | null;
+}
+export interface InstagramInfo {
+  url: string;
+  contentType: InstagramContentType;
+  title: string;
+  creator: string | null;
+  items: InstagramMediaItem[];
+}
+export interface InstagramSelection {
+  itemId: string;
+  optionId: string;
+}
+export interface InstagramQueueResult {
+  jobs: DownloadJob[];
+  errors: Array<{ itemId: string; error: string }>;
 }
 export type JobStatus =
   | "queued"
@@ -39,6 +78,7 @@ export interface DownloadJob {
   title: string;
   thumbnail: string | null;
   type: MediaType;
+  source?: "instagram";
   format: string;
   quality: string;
   status: JobStatus;
@@ -62,6 +102,7 @@ export interface DownloadJob {
   sidecarFilename?: string | null;
   sidecarSavedPath?: string;
   sidecarDelivered?: boolean;
+  clipRange?: ClipRange | null;
 }
 export interface Health {
   tools: { ytDlp: boolean; ffmpeg: boolean };

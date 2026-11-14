@@ -2,7 +2,7 @@
 
 Music and video, saved simply. GSD uses React, TypeScript and Vite for its interface, Express for a local download service, yt-dlp for extraction, FFmpeg for merging/audio conversion, and Electron for its Windows and Linux desktop apps.
 
-This is an implementation of the existing GSDM project. The original preview, audio/video workflow, yt-dlp integration, metadata caching, progress updates and FIFO queue have been retained and rebuilt around independent download jobs. The old request-bound download lifecycle and unreliable Windows pause signals have been removed.
+This is an implementation of the existing GSDM project. The original preview, audio/video workflow, yt-dlp integration, metadata caching, progress updates and FIFO queue have been retained and rebuilt around independent download jobs. The desktop-first workspace has Home, Universal Downloader, Instagram Downloader, Clip Studio, Processing, Library and Settings pages. AI Summary and Subtitles remain visible but unavailable until implemented; they do not display mock data.
 
 ## Run on Linux
 
@@ -35,9 +35,10 @@ Use the generated `GSD-Setup-2.0.0-x64.exe` installer in `release/`. It includes
 
 1. Run the installer and choose an installation folder.
 2. Launch **GSD** from the Start menu or desktop shortcut.
-3. Paste a supported single-media URL and select **Find media**.
-4. Choose Audio or Video, an available format and source quality.
-5. Choose a save folder with the native picker and start the download.
+3. Open **Universal Downloader**, **Instagram Downloader** or **Clip Studio** from the sidebar.
+4. Paste a supported media URL and select **Find media**. The download pages also accept multiple URLs or a `.txt` URL list.
+5. Choose an available format and source quality. In Clip Studio, select a timeline range or enter its start and end time.
+6. Choose a save folder with the native picker and start the download.
 
 The build is unsigned. Windows may display a publisher/SmartScreen prompt. For signed distribution, enable `win.signExecutable` in `electron-builder.yml` and configure a code-signing certificate. Windows x64 is the packaged target.
 
@@ -74,7 +75,7 @@ npm run web
 
 Open `http://127.0.0.1:3000`. The same built React interface is served by Express. Browser downloads use a save picker where the browser supports it, or the browser's configured download location. Browsers cannot grant a server arbitrary access to a local folder. Enable “Ask where to save each file” in browser settings when using the standard download fallback.
 
-The Appearance selector offers Light, Dark and OLED-friendly Black themes. Your choice is saved locally and applied before the interface renders.
+Settings offers Light, Dark and OLED-friendly Black themes. Dark is the first-run default; your choice is saved locally and applied before the interface renders. The sidebar can be collapsed for narrower windows.
 
 For the desktop app during development:
 
@@ -108,6 +109,7 @@ If Electron is already extracted and the build environment cannot use its defaul
 ## Structure
 
 - `frontend/src/components/`: accessible media form, preview and download rows.
+- `frontend/src/workspace.css`: responsive workspace design system and theme surfaces.
 - `frontend/src/hooks/`: metadata and download state, SSE updates and recovery.
 - `frontend/src/api/`: typed HTTP calls and streaming/file delivery.
 - `backend/server.js`: Express API, session ownership, static interface and startup/shutdown.
@@ -130,6 +132,18 @@ Two jobs run concurrently by default and at most 20 wait in FIFO order. Each att
 Active and queued jobs have no idle expiration. Finished browser files remain available for one hour for delivery, then expire. Successful file delivery removes temporary artifacts; interrupted delivery can be retried within the retention period. Desktop downloads are copied to an exclusively created destination filename so existing files are never overwritten, then temporary files are removed. Failed/cancelled attempts are cleaned up. Shutdown cancels pending work and removes this instance's temporary workspace. The job list is in memory; application restart does not resume jobs or restore history.
 
 Pause/resume is intentionally unavailable because suspending yt-dlp/FFmpeg with Unix process signals is unreliable on Windows. Cancel and retry are supported.
+
+## Clip downloads
+
+Open **Clip Studio** from the navigation or at `/clip` to use the dedicated clip editor. Analyze a video link, then immediately choose the start and end with duration-based sliders or `MM:SS` / `HH:MM:SS` fields. The timeline uses the metadata duration; GSD does not download a separate preview video before you can select a range.
+
+Choose an available video or audio format and quality to download the selected range. Clip jobs use the same queue, progress, save-location, cancel, retry and delivery behavior as full downloads. FFmpeg is required; some supported media sources may not support section downloads. GSD asks yt-dlp/FFmpeg to force keyframes at the cut points, which can re-encode the clip and take longer than downloading the full source format.
+
+## Instagram downloads
+
+Open **Instagram Downloader** from the sidebar or at `/instagram`. Paste a public post, carousel, reel, story, highlight or profile URL to inspect accessible items, choose a format and quality, then add selected items or all items to the shared download queue. Instagram image downloads preserve the available original image; video options use the formats exposed by yt-dlp. Desktop users can choose a destination folder; browser downloads use the browser's normal delivery flow.
+
+Instagram extraction and downloads use a dedicated no-cookie yt-dlp path. They do not use `GSD_COOKIES_FROM_BROWSER`, ask for a password, or bypass private-account and sign-in restrictions. Stories, highlights and profile pictures may be unavailable when Instagram does not expose them publicly. Instagram can change its public endpoints or expire media links; inspect the URL again before retrying if access has changed.
 
 ## Automatic cover artwork
 
@@ -169,7 +183,7 @@ npm run build:win
 npm run smoke:desktop -- --capture
 ```
 
-`test:media` runs the real bundled yt-dlp, FFmpeg and FFprobe against generated local media. Its private-URL allowance is scoped to the in-process test server; normal GSD rejects local network media URLs. It verifies concurrent MP4/MP3 downloads, source preservation, browser delivery acknowledgments, queueing, cancellation, retry delivery, directory collision avoidance, session ownership and SSE updates. Unit tests use a virtual clock for long-running sessions and expiry; they do not wait for days.
+`test:media` runs yt-dlp, FFmpeg and FFprobe against generated local media. Its private-URL allowance is scoped to the in-process test server; normal GSD rejects local network media URLs. It verifies clip extraction and duration, shared file delivery, concurrent MP4/MP3 downloads, source preservation, browser delivery acknowledgments, queueing, cancellation, retry delivery, directory collision avoidance, session ownership and SSE updates. Unit tests use a virtual clock for long-running sessions and expiry; they do not wait for days.
 
 `smoke:desktop` exercises the packaged app; use `node scripts/smoke-desktop.cjs --dev --capture` to test the development Electron entry. It checks bundled tool startup, an available localhost port, backend readiness, secure preload bridge, rendered interface and clean shutdown. Screenshots and JSON/log reports are written to ignored `work/` folders.
 

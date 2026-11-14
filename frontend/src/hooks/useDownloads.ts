@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { api } from "../api/client";
-import type { DownloadJob, ThumbnailSettings } from "../types";
+import type { ClipRange, DownloadJob, InstagramQueueResult, InstagramSelection, ThumbnailSettings } from "../types";
 import { errorMessage } from "../utils";
 
 function newerJob(
@@ -87,10 +87,19 @@ export function useDownloads() {
     document.addEventListener("visibilitychange", onVisible);
     return () => document.removeEventListener("visibilitychange", onVisible);
   }, [refresh]);
-  const create = async (url: string, optionId: string, saveToken?: string, settings?: ThumbnailSettings) => {
-    const job = await api.create(url, optionId, saveToken, settings);
+  const create = async (url: string, optionId: string, saveToken?: string, settings?: ThumbnailSettings, clipRange?: ClipRange) => {
+    const job = await api.create(url, optionId, saveToken, settings, clipRange);
     upsert(job);
     return job;
+  };
+  const createInstagram = async (
+    url: string,
+    items: InstagramSelection[],
+    saveToken?: string,
+  ): Promise<InstagramQueueResult> => {
+    const result = await api.instagramQueue(url, items, saveToken);
+    result.jobs.forEach(upsert);
+    return result;
   };
   const cancel = async (id: string) => {
     const job = await api.cancel(id);
@@ -100,5 +109,15 @@ export function useDownloads() {
     const job = await api.retry(id);
     upsert(job);
   };
-  return { jobs, loading, error, reconnecting, create, cancel, retry, refresh };
+  return {
+    jobs,
+    loading,
+    error,
+    reconnecting,
+    create,
+    createInstagram,
+    cancel,
+    retry,
+    refresh,
+  };
 }

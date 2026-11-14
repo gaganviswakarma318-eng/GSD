@@ -306,9 +306,21 @@ main {
 }
 .workspace-grid {
   display: grid;
-  grid-template-columns: minmax(0, 1.38fr) minmax(0, 1fr);
+  grid-template-columns: minmax(0, 1fr);
   gap: 24px;
   align-items: start;
+}
+.downloaders-area {
+  min-width: 0;
+}
+.downloaders-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 24px;
+  align-items: start;
+}
+.download-section {
+  min-width: 0;
 }
 .panel {
   border: 1px solid var(--line);
@@ -645,6 +657,71 @@ select:disabled {
   line-height: 1.6;
   margin-top: 9px;
   min-height: 15px;
+}
+.clip-controls {
+  padding: 18px 0 17px;
+  border-bottom: 1px solid #edf0e7;
+}
+.clip-range-heading {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 10px;
+}
+.clip-range-heading h3 {
+  font-size: 11px;
+  font-weight: 650;
+  color: #53604d;
+}
+.clip-range-heading span {
+  font-size: 9px;
+  color: #89927d;
+  text-align: right;
+}
+.clip-time-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 12px;
+  margin-top: 14px;
+}
+.clip-time-input {
+  width: 100%;
+  min-width: 0;
+  border: 1px solid #e0e6d8;
+  border-radius: 8px;
+  background: #fcfdfb;
+  color: var(--ink);
+  padding: 11px 12px;
+  font-size: 12px;
+  font-variant-numeric: tabular-nums;
+}
+.clip-time-input[aria-invalid="true"] {
+  border-color: #dfab9f;
+}
+.clip-slider-fields {
+  display: grid;
+  gap: 10px;
+  margin-top: 14px;
+}
+.clip-slider-fields label {
+  display: grid;
+  gap: 5px;
+  color: #75806a;
+  font-size: 9px;
+  font-variant-numeric: tabular-nums;
+}
+.clip-slider-fields input {
+  width: 100%;
+  margin: 0;
+  accent-color: #789346;
+}
+.clip-range-error {
+  min-height: 0;
+}
+.inline-error.clip-range-error {
+  margin-top: 8px;
+  padding: 7px 9px;
+  font-size: 9px;
 }
 .thumbnail-options {
   margin-top: 17px;
@@ -1357,7 +1434,6 @@ select:disabled {
     padding: 0 30px;
   }
   .workspace-grid {
-    grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
     gap: 18px;
   }
   .composer {
@@ -1414,6 +1490,11 @@ select:disabled {
   }
   .intro-stamp {
     margin-right: 16px;
+  }
+}
+@media (max-width: 900px) {
+  .downloaders-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
 }
 @media (max-width: 760px) {
@@ -1484,6 +1565,9 @@ select:disabled {
   .workspace-grid {
     grid-template-columns: 1fr;
     gap: 22px;
+  }
+  .downloaders-grid {
+    grid-template-columns: minmax(0, 1fr);
   }
   .composer {
     padding: 24px 23px 17px;
@@ -3048,20 +3132,11 @@ html[data-theme="black"] body::before {
   color: var(--accent-text);
 }
 
-.theme-selector-icon {
-  position: absolute;
-  left: 9px;
-  z-index: 1;
-  width: 15px;
-  height: 15px;
-  pointer-events: none;
-}
-
 select.theme-toggle {
   appearance: none;
   width: 102px;
   min-width: 102px;
-  padding: 8px 27px 8px 30px;
+  padding: 8px 27px 8px 10px;
   border: 1px solid var(--line);
   border-radius: 8px;
   background-color: var(--surface-subtle);
@@ -3371,5 +3446,166 @@ html[data-theme="black"] select.theme-toggle {
     min-width: 102px;
     min-height: 36px;
     padding: 7px 25px 7px 29px;
+  }
+}
+
+html:is([data-theme="dark"], [data-theme="black"]) .clip-controls {
+  border-color: var(--border-soft);
+}
+
+html:is([data-theme="dark"], [data-theme="black"])
+  :is(.clip-range-heading h3, .clip-time-fields .field-label) {
+  color: var(--text-secondary);
+}
+
+html:is([data-theme="dark"], [data-theme="black"])
+  :is(.clip-range-heading span, .clip-slider-fields label) {
+  color: var(--text-subtle);
+}
+
+html:is([data-theme="dark"], [data-theme="black"]) .clip-time-input {
+  border-color: var(--line);
+  background: var(--surface-subtle);
+  color: var(--ink);
+}
+
+html:is([data-theme="dark"], [data-theme="black"]) .clip-slider-fields input {
+  accent-color: var(--accent-text);
+}
+
+html:is([data-theme="dark"], [data-theme="black"]) .inline-error.clip-range-error {
+  border-color: #70443e;
+  background: #3a2b28;
+  color: var(--error);
+}
+
+.app-navigation {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.app-navigation a {
+  color: #78836d;
+  font-size: 10px;
+  font-weight: 600;
+  text-decoration: none;
+  white-space: nowrap;
+}
+.app-navigation a:hover,
+.app-navigation a[aria-current="page"] {
+  color: #526d34;
+}
+.clip-studio-card {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 14px;
+  min-height: 100%;
+  padding: 31px;
+  text-decoration: none;
+  transition:
+    border-color 0.15s,
+    background 0.15s,
+    transform 0.15s;
+}
+.clip-studio-card:hover {
+  border-color: #c8dca7;
+  background: #fcfdf9;
+  transform: translateY(-2px);
+}
+.clip-studio-icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 48px;
+  border-radius: 12px;
+  background: #f0f5e7;
+  color: #718c4a;
+}
+.clip-studio-card > .eyebrow {
+  color: #7e8e68;
+}
+.clip-studio-card > strong {
+  font-size: 20px;
+  letter-spacing: -0.5px;
+}
+.clip-studio-card > span:not(.clip-studio-icon, .eyebrow, .clip-studio-link) {
+  max-width: 330px;
+  color: #78836f;
+  font-size: 11px;
+  line-height: 1.8;
+}
+.clip-studio-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  margin-top: auto;
+  padding-top: 20px;
+  color: #5b763b;
+  font-size: 11px;
+  font-weight: 650;
+}
+.clip-page-editor {
+  max-width: 980px;
+  margin: 0 auto;
+}
+.clip-page-editor .composer {
+  padding: 30px 34px 20px;
+}
+html:is([data-theme="dark"], [data-theme="black"]) .app-navigation a {
+  color: var(--text-subtle);
+}
+html:is([data-theme="dark"], [data-theme="black"])
+  .app-navigation a:hover,
+html:is([data-theme="dark"], [data-theme="black"])
+  .app-navigation a[aria-current="page"] {
+  color: var(--accent-text);
+}
+html:is([data-theme="dark"], [data-theme="black"]) .clip-studio-card:hover {
+  border-color: #65794b;
+  background: #30372b;
+}
+html:is([data-theme="dark"], [data-theme="black"]) .clip-studio-icon {
+  background: #36412d;
+  color: #b7cd8b;
+}
+html:is([data-theme="dark"], [data-theme="black"])
+  .clip-studio-card
+  > .eyebrow,
+html:is([data-theme="dark"], [data-theme="black"]) .clip-studio-link {
+  color: var(--accent-text);
+}
+html:is([data-theme="dark"], [data-theme="black"])
+  .clip-studio-card
+  > span:not(.clip-studio-icon, .eyebrow, .clip-studio-link) {
+  color: var(--text-secondary);
+}
+@media (max-width: 760px) {
+  .header-actions {
+    gap: 12px;
+  }
+  .app-navigation {
+    gap: 8px;
+  }
+  .app-navigation a {
+    font-size: 9px;
+  }
+  .clip-page-editor .composer {
+    padding: 24px 23px 17px;
+  }
+  .clip-studio-card {
+    min-height: 250px;
+  }
+}
+@media (max-width: 420px) {
+  .app-navigation a:not([aria-current="page"]) {
+    display: none;
+  }
+  .app-navigation a {
+    font-size: 8px;
+  }
+  .clip-page-editor .composer {
+    padding: 22px 18px 15px;
   }
 }

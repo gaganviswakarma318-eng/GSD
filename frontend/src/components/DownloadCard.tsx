@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { ACTIVE_STATUSES, isDesktop } from "../config";
 import type { DownloadJob } from "../types";
-import { errorMessage, formatBytes, formatEta } from "../utils";
+import { errorMessage, formatBytes, formatDuration, formatEta } from "../utils";
 import { Icon } from "./Icon";
 
 export interface DeliveryState {
@@ -19,6 +19,7 @@ interface Props {
 const PROCESSING_STAGES: Record<string, string> = {
   merging: "Merging audio and video",
   converting_audio: "Converting audio",
+  trimming: "Cutting clip",
   processing_thumbnail: "Processing thumbnail",
   embedding_thumbnail: "Embedding thumbnail",
   finalizing: "Finalizing file",
@@ -54,7 +55,9 @@ export function DownloadCard({
       : job.status === "processing"
         ? processingStage || "Finishing your file"
         : job.status === "downloading"
-          ? "Downloading media"
+          ? job.clipRange
+            ? "Downloading clip"
+            : "Downloading media"
           : job.status === "failed"
             ? "Download failed"
             : job.status === "cancelled"
@@ -100,9 +103,16 @@ export function DownloadCard({
         <div className="job-info">
           <h3 title={job.title}>{job.title}</h3>
           <div className="job-tags">
+            {job.source === "instagram" && <span>Instagram</span>}
             <span>{job.format.toUpperCase()}</span>
             <span>{job.quality}</span>
-            <span>{job.type === "audio" ? "Audio" : "Video"}</span>
+            <span>
+              {job.type === "image"
+                ? "Image"
+                : job.type === "audio"
+                  ? "Audio"
+                  : "Video"}
+            </span>
           </div>
         </div>
         {active && (
@@ -123,6 +133,12 @@ export function DownloadCard({
           </span>
         )}
       </div>
+      {job.clipRange && (
+        <p className="job-detail clip-job-range">
+          Clip: {formatDuration(job.clipRange.startSeconds)}–
+          {formatDuration(job.clipRange.endSeconds)}
+        </p>
+      )}
       <div className="job-status-row">
         <span className={`job-status ${complete ? "success-text" : ""}`}>
           {job.status === "queued" && <Icon name="clock" size={13} />}

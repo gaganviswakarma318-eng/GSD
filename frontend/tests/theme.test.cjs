@@ -36,7 +36,7 @@ function applySavedTheme(saved, storageUnavailable = false) {
 test("startup applies each supported saved appearance before render", () => {
   for (const [theme, color] of [
     ["light", "#f3f2ec"],
-    ["dark", "#1d221e"],
+    ["dark", "#090B0D"],
     ["black", "#000000"],
   ]) {
     const { root, meta } = applySavedTheme(theme);
@@ -46,14 +46,14 @@ test("startup applies each supported saved appearance before render", () => {
   }
 });
 
-test("unknown, removed or unavailable saved preferences fall back to light", () => {
+test("unknown, removed or unavailable saved preferences fall back to dark", () => {
   for (const result of [
     applySavedTheme("unexpected"),
     applySavedTheme("dark-blue"),
     applySavedTheme(null, true),
   ]) {
-    assert.equal(result.root.dataset.theme, "light");
-    assert.equal(result.root.style.colorScheme, "light");
-    assert.equal(result.meta.content, "#f3f2ec");
+    assert.equal(result.root.dataset.theme, "dark");
+    assert.equal(result.root.style.colorScheme, "dark");
+    assert.equal(result.meta.content, "#090B0D");
   }
 });

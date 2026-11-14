@@ -1,8 +1,9 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ACTIVE_STATUSES } from "../config";
 import type { DownloadJob } from "../types";
 import { DownloadCard, type DeliveryState } from "./DownloadCard";
 import { Icon } from "./Icon";
+type QueueFilter = "all" | "active" | "done" | "failed";
 interface Props {
   jobs: DownloadJob[];
   loading: boolean;
@@ -14,6 +15,8 @@ interface Props {
   onRetry(id: string): Promise<void>;
   onSave(job: DownloadJob): Promise<void>;
   onSaveThumbnail(job: DownloadJob): void;
+  title?: string;
+  initialFilter?: QueueFilter;
 }
 export function QueuePanel({
   jobs,
@@ -26,29 +29,39 @@ export function QueuePanel({
   onRetry,
   onSave,
   onSaveThumbnail,
+  title = "Your downloads",
+  initialFilter = "all",
 }: Props) {
-  const [filter, setFilter] = useState("all");
+  const [filter, setFilter] = useState(initialFilter);
+  useEffect(() => setFilter(initialFilter), [initialFilter]);
   const active = jobs.filter((job) => ACTIVE_STATUSES.has(job.status));
   const completed = jobs.filter((job) =>
     ["completed", "delivered"].includes(job.status),
   );
+  const failed = jobs.filter((job) => job.status === "failed");
+  const filters: Array<{ value: QueueFilter; label: string; count: number }> = [
+    { value: "all", label: "All", count: jobs.length },
+    { value: "active", label: "Active", count: active.length },
+    { value: "done", label: "Completed", count: completed.length },
+    { value: "failed", label: "Failed", count: failed.length },
+  ];
   const visible =
-    filter === "active" ? active : filter === "done" ? completed : jobs;
+    filter === "active"
+      ? active
+      : filter === "done"
+        ? completed
+        : filter === "failed"
+          ? failed
+          : jobs;
   return (
     <aside className="queue-column" aria-labelledby="downloads-title">
       <section className="queue-panel panel">
         <div className="section-heading">
-          <h2 id="downloads-title">
-            Your downloads <span className="count-badge">{jobs.length}</span>
-          </h2>
+          <h2 id="downloads-title">{title}</h2>
           <Icon name="download" size={19} />
         </div>
         <div className="queue-filters" aria-label="Filter downloads">
-          {[
-            { value: "all", label: "All", count: jobs.length },
-            { value: "active", label: "Active", count: active.length },
-            { value: "done", label: "Done", count: completed.length },
-          ].map((item) => (
+          {filters.map((item) => (
             <button
               key={item.value}
               className={filter === item.value ? "filter-active" : ""}
@@ -113,15 +126,19 @@ export function QueuePanel({
                 {filter === "active"
                   ? "All clear."
                   : filter === "done"
-                    ? "The good stuff is coming."
-                    : "A fresh start."}
+                    ? "Nothing finished yet."
+                    : filter === "failed"
+                      ? "No failed downloads."
+                      : "A fresh start."}
               </h3>
               <p>
                 {filter === "active"
                   ? "There are no downloads in progress."
                   : filter === "done"
                     ? "Your finished downloads will appear here."
-                    : "Your downloads will live here.\nAdd a link to get things going."}
+                    : filter === "failed"
+                      ? "Downloads that need attention will appear here."
+                      : "Your downloads will live here.\nAdd a link to get things going."}
               </p>
             </div>
           )}

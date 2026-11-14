@@ -1,5 +1,5 @@
 import { API_BASE } from "../config";
-import type { DownloadJob, Health, MediaInfo, SaveFileHandle, ThumbnailSettings } from "../types";
+import type { ClipRange, DownloadJob, Health, InstagramInfo, InstagramQueueResult, InstagramSelection, MediaInfo, SaveFileHandle, ThumbnailSettings } from "../types";
 
 let sessionReady: Promise<void> | null = null;
 function ensureSession(): Promise<void> {
@@ -50,9 +50,20 @@ export const api = {
   health: () => request<Health>("/health"),
   info: (url: string, signal: AbortSignal) =>
     request<MediaInfo>("/info", { ...post({ url }), signal }),
+  instagramInfo: (url: string, signal: AbortSignal) =>
+    request<InstagramInfo>("/instagram/info", { ...post({ url }), signal }),
+  instagramQueue: (
+    url: string,
+    items: InstagramSelection[],
+    saveToken?: string,
+  ) =>
+    request<InstagramQueueResult>(
+      "/instagram/jobs",
+      post({ url, items, saveToken }),
+    ),
   jobs: () => request<DownloadJob[]>("/jobs"),
-  create: (url: string, optionId: string, saveToken?: string, settings?: ThumbnailSettings) =>
-    request<DownloadJob>("/jobs", post({ url, optionId, saveToken, ...settings })),
+  create: (url: string, optionId: string, saveToken?: string, settings?: ThumbnailSettings, clipRange?: ClipRange) =>
+    request<DownloadJob>("/jobs", post({ url, optionId, saveToken, ...settings, ...(clipRange ? { clipRange } : {}) })),
   cancel: (id: string) =>
     request<DownloadJob>(`/jobs/${encodeURIComponent(id)}/cancel`, post()),
   retry: (id: string) =>
